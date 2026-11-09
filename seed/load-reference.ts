@@ -131,9 +131,11 @@ export async function loadReference(db: Db) {
     )
     .onConflictDoNothing()
   const groupRows = await db.select().from(tagGroupsTable)
+  // By the address, which stays when an admin renames a group; the name does
+  // not, and a group found by it would be missing after a rename.
   const groupId = lookup(
     'the tag group',
-    groupRows.map((row) => [`${row.game}/${row.name}`, row.id]),
+    groupRows.map((row) => [`${row.game}/${row.slug}`, row.id]),
   )
 
   // Portal's tags, then the ones an admin would add.
@@ -143,7 +145,7 @@ export async function loadReference(db: Db) {
       ...portalTags.bf2042.map((tag, index) => ({
         game: 'bf2042' as const,
         groupId: groupId(
-          eraTagIds.includes(tag.id) ? 'bf2042/Era' : 'bf2042/Rules',
+          eraTagIds.includes(tag.id) ? 'bf2042/era' : 'bf2042/rules',
         ),
         name: tag.name,
         slug: slugify(tag.name),
@@ -154,7 +156,7 @@ export async function loadReference(db: Db) {
       })),
       ...portalTags.bf6.map((tag, index) => ({
         game: 'bf6' as const,
-        groupId: groupId('bf6/Rules'),
+        groupId: groupId('bf6/rules'),
         name: tag.name,
         slug: slugify(tag.name),
         portalId: tag.id,
@@ -166,7 +168,7 @@ export async function loadReference(db: Db) {
       ...tagGroups.flatMap((group) =>
         group.tags.map((name, index) => ({
           game: group.game,
-          groupId: groupId(`${group.game}/${group.name}`),
+          groupId: groupId(`${group.game}/${slugify(group.name)}`),
           name,
           slug: slugify(name),
           sortOrder: index,
