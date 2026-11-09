@@ -16,6 +16,7 @@ import {
 import { addFilesToForm, type SentFile } from '../server/services/held-files'
 import { getDraftEditPage, getSubmitPage } from '../server/services/submit-page'
 import { games } from '../shared/content'
+import { experienceFormInput } from '../shared/experience-form'
 import { formOr } from '../shared/form-input'
 import { defaultGame } from '../shared/games'
 import {
@@ -174,7 +175,7 @@ async function backToForm(
 
 /** Submits an experience for review: a new one, or a draft being edited. */
 export const submitForReview = createServerFn({ method: 'POST' })
-  .validator(formOr(z.record(z.string(), z.unknown())))
+  .validator(formOr(experienceFormInput))
   .handler(async ({ data }) => {
     assertFromThisSite()
     const actor = await currentActor()
@@ -192,7 +193,7 @@ export const submitForReview = createServerFn({ method: 'POST' })
  * draft being edited. Only a title and safe links are needed.
  */
 export const saveDraft = createServerFn({ method: 'POST' })
-  .validator(formOr(z.record(z.string(), z.unknown())))
+  .validator(formOr(experienceFormInput))
   .handler(async ({ data }) => {
     assertFromThisSite()
     const actor = await currentActor()
@@ -225,7 +226,7 @@ export const deleteDraft = createServerFn({ method: 'POST' })
  * back as a draft, with no script and with one: the page's script goes to it.
  */
 export const readProjectFiles = createServerFn({ method: 'POST' })
-  .validator(formOr(z.record(z.string(), z.unknown())))
+  .validator(formOr(experienceFormInput))
   .handler(async ({ data }) => {
     assertFromThisSite()
     const actor = await currentActor()
@@ -233,7 +234,12 @@ export const readProjectFiles = createServerFn({ method: 'POST' })
       if (data.viaForm) throw redirectTo('/login')
       return refuse('signed-out')
     }
-    const input = data.input ?? {}
+    // No page of the site sends a form that does not read.
+    if (!data.input) {
+      if (data.viaForm) throw redirectTo('/submit')
+      return refuse('invalid', data.errors)
+    }
+    const input = data.input
     const fields = withoutFiles(input)
     const files = await filesSent(input)
     const result = files.ok

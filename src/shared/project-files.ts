@@ -14,6 +14,11 @@ export const MAX_FILE_BYTES = 2 * 1024 * 1024
 /** How many files may be added beside the export. */
 export const MAX_ADDED_FILES = 10
 /**
+ * The most file ids one form names, in its `files` or its `shownFiles`: an
+ * export, the one about to replace it, and every file beside them.
+ */
+export const MAX_FORM_FILES = MAX_ADDED_FILES + 2
+/**
  * The most one request may carry: an export and every file beside it, sent
  * together by a form with no script, with room for the rest of the form and
  * for the script's way of sending a file as text. A request is refused at

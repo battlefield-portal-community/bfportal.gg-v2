@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { experienceFormSchema, formErrors } from './experience-form'
-import { formFields } from './form-input'
+import {
+  experienceFormInput,
+  experienceFormSchema,
+  formErrors,
+} from './experience-form'
+import { formFields, formOr } from './form-input'
+import { MAX_FORM_FILES } from './project-files'
 
 const base = {
   game: 'bf6',
@@ -112,5 +117,35 @@ describe('the submit form', () => {
     expect(problem('https://clips.twitch.tv/abc')).toBe(
       'Videos must be on YouTube.',
     )
+  })
+})
+
+describe('the file ids a form names', () => {
+  const ids = (count: number) =>
+    Array.from(
+      { length: count },
+      (_, n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+    )
+  const read = formOr(experienceFormInput)
+
+  it('takes as many as a form holds, sent either way', () => {
+    expect(read({ ...base, files: ids(MAX_FORM_FILES) }).input).not.toBeNull()
+    const form = new FormData()
+    for (const id of ids(MAX_FORM_FILES)) form.append('shownFiles', id)
+    expect(read(form as never).input).not.toBeNull()
+  })
+
+  it('refuses more before anything looks them up', () => {
+    for (const name of ['files', 'shownFiles']) {
+      expect(read({ ...base, [name]: ids(MAX_FORM_FILES + 1) })).toMatchObject({
+        input: null,
+        errors: { files: 'The form names more files than it can hold.' },
+      })
+      const form = new FormData()
+      for (const id of ids(MAX_FORM_FILES + 1)) form.append(name, id)
+      expect(read(form as never).input).toBeNull()
+    }
+    // The review's case: tens of thousands, sent by a script.
+    expect(read({ shownFiles: ids(65_536) }).input).toBeNull()
   })
 })

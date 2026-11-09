@@ -5,6 +5,7 @@ import {
 } from '@tanstack/solid-start'
 
 import { MAX_REQUEST_BYTES } from './shared/project-files'
+import { answerForError } from './shared/unexpected'
 
 // What every request to the site goes through before anything else reads it.
 
@@ -48,6 +49,17 @@ const noFraming = createMiddleware().server(async ({ next }) => {
   return { ...result, response }
 })
 
+/** A server function's fault reaches the visitor as a plain message. */
+const plainErrors = createMiddleware({ type: 'function' }).server(
+  async ({ next }) => {
+    try {
+      return await next()
+    } catch (error) {
+      throw answerForError(error, import.meta.env.PROD)
+    }
+  },
+)
+
 /**
  * Server functions take requests from this site's own pages only. Start adds
  * this by itself until a start file names its own middleware, as this one
@@ -59,4 +71,5 @@ const csrf = createCsrfMiddleware({
 
 export const startInstance = createStart(() => ({
   requestMiddleware: [noFraming, bodyLimit, csrf],
+  functionMiddleware: [plainErrors],
 }))

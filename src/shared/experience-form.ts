@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { experienceTypes, games } from './content'
 import { formBoolean } from './form-input'
 import { type MediaProblem, mediaOf } from './media'
-import { MAX_ADDED_FILES } from './project-files'
+import { MAX_ADDED_FILES, MAX_FORM_FILES } from './project-files'
 import { MAX_TEAMS } from './teams'
 
 export { fieldErrors as formErrors } from './form-input'
@@ -147,3 +147,25 @@ export const experienceFormSchema = z.object({
 })
 
 export type ExperienceForm = z.infer<typeof experienceFormSchema>
+
+/**
+ * The form as its server functions take it, before anything else reads it:
+ * any fields, which the service checks with the schema above, and no more
+ * file ids than a form holds. No page sends more, and a long list would only
+ * make a long query.
+ */
+export const experienceFormInput = z
+  .record(z.string(), z.unknown())
+  .superRefine((fields, context) => {
+    for (const name of ['files', 'shownFiles']) {
+      const value = fields[name]
+      if (value !== undefined && [value].flat().length > MAX_FORM_FILES) {
+        context.addIssue({
+          code: 'custom',
+          path: ['files'],
+          message: 'The form names more files than it can hold.',
+        })
+        return
+      }
+    }
+  })
