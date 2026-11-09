@@ -34,6 +34,7 @@ import { pictureHosts } from '../markdown'
 import { needsStaff } from './access'
 import { type EditPayload, editPayloadSchema } from './edit-payload'
 import { applyEdit, describeEdit, type EditChange } from './experience-edits'
+import { partsOf, proposedFileAddresses } from './file-view'
 import {
   applySnippetEdit,
   describeSnippetEdit,
@@ -379,6 +380,8 @@ export async function getEditReview(actor: Actor | null, id: number) {
     .orderBy(asc(projectFiles.id))
   // What approving would store in their place, held for the edit until then,
   // each to open and download here before deciding.
+  // An export is followed by the files inside it, which approving stores
+  // one by one: the moderator reads those, not the export's base64.
   const sentFiles = payload.form?.files ?? []
   const proposed =
     sentFiles.length > 0
@@ -389,6 +392,9 @@ export async function getEditReview(actor: Actor | null, id: number) {
               kind: heldFiles.kind,
               filename: heldFiles.filename,
               sizeBytes: heldFiles.sizeBytes,
+              exportBody: sql<
+                string | null
+              >`case when ${heldFiles.kind} = 'export' then ${heldFiles.body} end`,
             })
             .from(heldFiles)
             .where(
@@ -398,12 +404,21 @@ export async function getEditReview(actor: Actor | null, id: number) {
               ),
             )
             .orderBy(asc(heldFiles.createdAt))
-        ).map((file) => ({
-          ...file,
-          fromExport: false,
-          view: `/edits/${found.id}/files/${file.id}`,
-          download: `/api/edits/${found.id}/files/${file.id}`,
-        }))
+        ).flatMap(({ exportBody, ...file }) => [
+          {
+            ...file,
+            fromExport: false,
+            ...proposedFileAddresses(found.id, file.id),
+          },
+          ...(exportBody ? partsOf(exportBody) : []).map((inside, part) => ({
+            id: `${file.id}-${part}`,
+            kind: inside.kind,
+            filename: inside.filename,
+            sizeBytes: inside.sizeBytes,
+            fromExport: true,
+            ...proposedFileAddresses(found.id, file.id, part),
+          })),
+        ])
       : []
   const yesNo = (value: boolean) => (value ? 'Yes' : 'No')
   const offered = files.length === 1 ? 'its file' : `its ${files.length} files`

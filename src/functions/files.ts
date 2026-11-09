@@ -19,10 +19,12 @@ export const fetchProposedFileView = createServerFn({ method: 'GET' })
     z.object({
       edit: z.number().int().positive(),
       file: z.string().uuid(),
+      /** A file inside an export, by its place. */
+      part: z.number().int().min(0).max(999).optional(),
     }),
   )
   .handler(async ({ data }) =>
-    getProposedFileView(await currentActor(), data.edit, data.file),
+    getProposedFileView(await currentActor(), data.edit, data.file, data.part),
   )
 
 export type FileView = NonNullable<Awaited<ReturnType<typeof fetchFileView>>>

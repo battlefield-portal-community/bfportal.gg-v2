@@ -370,7 +370,9 @@ describe('editing a live experience', () => {
     const { id } = await live()
     const sha = (text: string) =>
       createHash('sha256').update(text).digest('hex')
-    const exportText = portalExport()
+    // Long enough that the export, read as it is, shows it only as base64.
+    const script = 'export function OnGameModeStarted(): void {}\n'.repeat(8)
+    const exportText = portalExport({ script })
     // Live: an export and a scene.
     await db.delete(projectFiles).where(eq(projectFiles.experienceId, id))
     await db.insert(projectFiles).values(
@@ -413,14 +415,48 @@ describe('editing a live experience', () => {
       live: 'mode.json, Map.tscn',
       proposed: 'mode.json, Map.tscn (new contents)',
     })
+    // The export, each file inside it as approving stores them, and the
+    // file sent beside it.
     expect(review.edit.proposed.map((file) => file.filename)).toEqual([
       'mode.json',
+      'bundle.ts',
+      'bundle.strings.json',
+      'MP_Abbasid_Test.spatial.json',
       'Map.tscn',
     ])
     expect(review.edit.proposed[1]).toMatchObject({
+      kind: 'script',
+      fromExport: true,
+      view: `/edits/${edit.id}/files/${exported}?part=0`,
+      download: `/api/edits/${edit.id}/files/${exported}?part=0`,
+    })
+    expect(review.edit.proposed[4]).toMatchObject({
       view: `/edits/${edit.id}/files/${scene}`,
       download: `/api/edits/${edit.id}/files/${scene}`,
     })
+
+    // The export as it is shows its script only as base64; the file inside
+    // it is the script.
+    const firstLine = 'export function OnGameModeStarted'
+    expect(
+      (await getProposedFileView(moderator, edit.id, exported))?.text,
+    ).not.toContain(firstLine)
+    expect(
+      await getProposedFileView(moderator, edit.id, exported, 0),
+    ).toMatchObject({
+      file: { filename: 'bundle.ts', kind: 'script', fromExport: true },
+      text: script.trimEnd(),
+      download: `/api/edits/${edit.id}/files/${exported}?part=0`,
+    })
+    expect((await getProposedFile(moderator, edit.id, exported, 0))?.body).toBe(
+      script,
+    )
+    // Only a place an export has, and only inside an export.
+    expect(await getProposedFile(moderator, edit.id, exported, 9)).toBeNull()
+    expect(await getProposedFile(moderator, edit.id, scene, 0)).toBeNull()
+    for (const viewer of [null, owner]) {
+      expect(await getProposedFile(viewer, edit.id, exported, 0)).toBeNull()
+    }
 
     // A moderator reads what was sent. Nobody else does, its owner included,
     // and only a file this edit names.
@@ -454,5 +490,13 @@ describe('editing a live experience', () => {
       NOW,
     )
     expect(await getProposedFile(moderator, edit.id, scene)).toBeNull()
+    // What approving stored is what the moderator read.
+    const stored = await db
+      .select({ filename: projectFiles.filename, body: projectFiles.body })
+      .from(projectFiles)
+      .where(eq(projectFiles.experienceId, id))
+    expect(stored.find((file) => file.filename === 'bundle.ts')?.body).toBe(
+      script,
+    )
   })
 })

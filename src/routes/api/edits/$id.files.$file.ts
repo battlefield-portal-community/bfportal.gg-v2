@@ -10,12 +10,16 @@ const notFound = () => new Response('Not found', { status: 404 })
 export const Route = createFileRoute('/api/edits/$id/files/$file')({
   server: {
     handlers: {
-      GET: async ({ params }) => {
+      GET: async ({ params, request }) => {
         if (!/^\d{1,9}$/.test(params.id)) return notFound()
+        // A file inside an export, by its place.
+        const part = new URL(request.url).searchParams.get('part')
+        if (part !== null && !/^\d{1,3}$/.test(part)) return notFound()
         const found = await getProposedFile(
           await currentActor(),
           Number(params.id),
           params.file,
+          part === null ? undefined : Number(part),
         )
         if (!found) return notFound()
 

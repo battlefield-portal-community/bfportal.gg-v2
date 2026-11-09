@@ -9,6 +9,7 @@ import { needsStaff } from './access'
 import { editPayloadSchema } from './edit-payload'
 import { fileReadableBy } from './experience'
 import { heldIdsIn } from './held-files'
+import { filesInExport, readExport } from './portal-export'
 
 // One project file, to read on a page rather than download: for a moderator
 // reviewing a submission's files, and for anyone looking at a template's.
@@ -74,14 +75,29 @@ export async function getFileView(publicId: string, viewer: Actor | null) {
 }
 
 /**
+ * The files inside an export, as approving an edit stores them, each with
+ * its size: `part` is a file's place in this list.
+ */
+export function partsOf(exportBody: string) {
+  const read = readExport(exportBody)
+  return (read ? filesInExport(read.export) : []).map((inside) => ({
+    ...inside,
+    sizeBytes: Buffer.byteLength(inside.body),
+  }))
+}
+
+/**
  * A file an edit waiting for review would store in place of the live one's,
  * for a moderator to read before deciding. Only staff, only while the edit
- * waits, and only a file it names. Null otherwise.
+ * waits, and only a file it names. With `part`, the file of that place
+ * inside an export it names, which approving stores beside it. Null
+ * otherwise.
  */
 export async function getProposedFile(
   viewer: Actor | null,
   editId: number,
   fileId: string,
+  part?: number,
 ) {
   if (needsStaff(viewer) || heldIdsIn([fileId]).length === 0) return null
   const [edit] = await db
@@ -123,7 +139,37 @@ export async function getProposedFile(
         isNull(experiences.deletedAt),
       ),
     )
-  return found ? { ...found, file: { ...found.file, fromExport: false } } : null
+  if (!found) return null
+  if (part === undefined) {
+    return { ...found, file: { ...found.file, fromExport: false } }
+  }
+  if (found.file.kind !== 'export') return null
+  const inside = partsOf(found.body)[part]
+  if (!inside) return null
+  return {
+    file: {
+      id: found.file.id,
+      kind: inside.kind,
+      filename: inside.filename,
+      sizeBytes: inside.sizeBytes,
+      fromExport: true,
+    },
+    body: inside.body,
+    experience: found.experience,
+  }
+}
+
+/** Where a proposed file, or a part of one, is read and downloaded. */
+export function proposedFileAddresses(
+  editId: number,
+  fileId: string,
+  part?: number,
+) {
+  const query = part === undefined ? '' : `?part=${part}`
+  return {
+    view: `/edits/${editId}/files/${fileId}${query}`,
+    download: `/api/edits/${editId}/files/${fileId}${query}`,
+  }
 }
 
 /** The same, to read on a page. */
@@ -131,9 +177,12 @@ export async function getProposedFileView(
   viewer: Actor | null,
   editId: number,
   fileId: string,
+  part?: number,
 ) {
-  const found = await getProposedFile(viewer, editId, fileId)
-  return found ? viewOf(found, `/api/edits/${editId}/files/${fileId}`) : null
+  const found = await getProposedFile(viewer, editId, fileId, part)
+  return found
+    ? viewOf(found, proposedFileAddresses(editId, fileId, part).download)
+    : null
 }
 
 /** A file as a page shows it, cut where it is too long to show. */
