@@ -2,6 +2,8 @@ import { and, desc, eq, isNotNull, isNull, max, sql } from 'drizzle-orm'
 
 import type { ReportSort, ReportState } from '../../shared/admin-search'
 import type { Game, ReportType } from '../../shared/content'
+import { CHANGED_SINCE_OPENED } from '../../shared/decision'
+import type { HealthFlags, ReportsSeen } from '../../shared/reports-seen'
 import { type Refusal, refuse } from '../../shared/results'
 import type { Actor } from '../auth/actor'
 import { db } from '../db'
@@ -124,26 +126,73 @@ export async function listReports(
         xpFarm: row.xpFarm,
         unavailable: isUnavailable(row),
       },
+      // What a decision on this row is about. On the "dealt with" tab no
+      // open report is shown, so a decision there deals with none.
+      seen: {
+        flags: { bugged: row.bugged, broken: row.broken, xpFarm: row.xpFarm },
+        lastReport: state === 'open' ? row.last : null,
+      } satisfies ReportsSeen,
     })),
     counts: { open: openCount.value, dismissed: dismissedCount.value },
     now: new Date(),
   }
 }
 
-/** The live experience a moderator acts on, by its address. */
-async function reported(slug: string) {
-  const [found] = await db
-    .select({ id: experiences.id })
-    .from(experiences)
-    .where(and(eq(experiences.slug, slug), isNull(experiences.deletedAt)))
-    .limit(1)
-  return found ?? null
+/**
+ * Decides on an experience's reports as the moderator saw them. The
+ * experience is held while it is decided, and the decision is refused if its
+ * flags have changed since: another moderator acted. Only the reports made
+ * by the time the moderator looked are dealt with; one made or made again
+ * since stays open, since nobody has seen it.
+ */
+async function decideReports(
+  actor: Actor,
+  slug: string,
+  seen: ReportsSeen,
+  now: Date,
+  flags: HealthFlags | null,
+): Promise<{ ok: true } | Refusal> {
+  return db.transaction(async (tx) => {
+    const [found] = await tx
+      .select({
+        id: experiences.id,
+        bugged: experiences.bugged,
+        broken: experiences.broken,
+        xpFarm: experiences.xpFarm,
+      })
+      .from(experiences)
+      .where(and(eq(experiences.slug, slug), isNull(experiences.deletedAt)))
+      .for('update')
+    if (!found) return refuse('not-found')
+    if (
+      found.bugged !== seen.flags.bugged ||
+      found.broken !== seen.flags.broken ||
+      found.xpFarm !== seen.flags.xpFarm
+    ) {
+      return refuse('invalid', { form: CHANGED_SINCE_OPENED })
+    }
+    if (flags) {
+      await tx
+        .update(experiences)
+        .set(flags)
+        .where(eq(experiences.id, found.id))
+    }
+    if (seen.lastReport) {
+      await resolveSeen(tx, found.id, seen.lastReport, actor, now)
+    }
+    return { ok: true as const }
+  })
 }
 
-/** Marks every open report on an experience dealt with, by whoever acts. */
-const resolveOpen = (
+/**
+ * Marks the open reports on an experience made by `seenUntil` dealt with.
+ * The time shown carries milliseconds, the database's more, so it compares
+ * to the millisecond.
+ */
+const resolveSeen = (
   executor: Executor,
   experienceId: number,
+  seenUntil: Date,
   actor: Actor,
   now: Date,
 ) =>
@@ -154,6 +203,7 @@ const resolveOpen = (
       and(
         eq(experienceReports.experienceId, experienceId),
         isNull(experienceReports.resolvedAt),
+        sql`date_trunc('milliseconds', ${experienceReports.createdAt}) <= ${seenUntil.toISOString()}::timestamptz`,
       ),
     )
 
@@ -161,14 +211,12 @@ const resolveOpen = (
 export async function dismissReports(
   actor: Actor | null,
   slug: string,
+  seen: ReportsSeen,
   now = new Date(),
 ): Promise<{ ok: true } | Refusal> {
   const refused = needsStaff(actor)
   if (refused || !actor) return refused ?? refuse('signed-out')
-  const found = await reported(slug)
-  if (!found) return refuse('not-found')
-  await resolveOpen(db, found.id, actor, now)
-  return { ok: true }
+  return decideReports(actor, slug, seen, now, null)
 }
 
 /**
@@ -179,19 +227,11 @@ export async function dismissReports(
 export async function setHealthFlags(
   actor: Actor | null,
   slug: string,
-  flags: { bugged: boolean; broken: boolean; xpFarm: boolean },
+  flags: HealthFlags,
+  seen: ReportsSeen,
   now = new Date(),
 ): Promise<{ ok: true } | Refusal> {
   const refused = needsStaff(actor)
   if (refused || !actor) return refused ?? refuse('signed-out')
-  const found = await reported(slug)
-  if (!found) return refuse('not-found')
-  await db.transaction(async (tx) => {
-    await tx
-      .update(experiences)
-      .set({ bugged: flags.bugged, broken: flags.broken, xpFarm: flags.xpFarm })
-      .where(eq(experiences.id, found.id))
-    await resolveOpen(tx, found.id, actor, now)
-  })
-  return { ok: true }
+  return decideReports(actor, slug, seen, now, flags)
 }

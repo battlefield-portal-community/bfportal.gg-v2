@@ -9,6 +9,7 @@ import {
 } from '../server/services/admin-reports'
 import { reportsSearchSchema } from '../shared/admin-search'
 import { formCheckbox, formOr } from '../shared/form-input'
+import { reportsSeenFields, seenFromFields } from '../shared/reports-seen'
 import { refuse } from '../shared/results'
 import { formAnswer } from './answer'
 
@@ -27,15 +28,24 @@ export const fetchReports = createServerFn({ method: 'GET' })
     }),
   )
 
-const slugSchema = z.object({ slug: z.string().min(1).max(200) })
+/** The experience decided on, and what the moderator was shown of it. */
+const decisionSchema = z.object({
+  slug: z.string().min(1).max(200),
+  ...reportsSeenFields,
+})
 
 /** Dismisses an experience's open reports. */
 export const dismiss = createServerFn({ method: 'POST' })
-  .validator(formOr(slugSchema))
+  .validator(formOr(decisionSchema))
   .handler(async ({ data }) => {
     assertFromThisSite()
-    const result = data.input
-      ? await dismissReports(await currentActor(), data.input.slug)
+    const { input } = data
+    const result = input
+      ? await dismissReports(
+          await currentActor(),
+          input.slug,
+          seenFromFields(input),
+        )
       : refuse('invalid', data.errors)
     if (data.viaForm) throw formAnswer(result, data.back)
     return result
@@ -45,7 +55,7 @@ export const dismiss = createServerFn({ method: 'POST' })
 export const setFlags = createServerFn({ method: 'POST' })
   .validator(
     formOr(
-      slugSchema.extend({
+      decisionSchema.extend({
         bugged: formCheckbox,
         broken: formCheckbox,
         xpFarm: formCheckbox,
@@ -56,7 +66,12 @@ export const setFlags = createServerFn({ method: 'POST' })
     assertFromThisSite()
     const { input } = data
     const result = input
-      ? await setHealthFlags(await currentActor(), input.slug, input)
+      ? await setHealthFlags(
+          await currentActor(),
+          input.slug,
+          { bugged: input.bugged, broken: input.broken, xpFarm: input.xpFarm },
+          seenFromFields(input),
+        )
       : refuse('invalid', data.errors)
     if (data.viaForm) throw formAnswer(result, data.back)
     return result

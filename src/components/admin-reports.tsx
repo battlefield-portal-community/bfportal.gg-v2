@@ -9,6 +9,7 @@ import {
 } from '../shared/admin-search'
 import { games, reportTypes } from '../shared/content'
 import { gameInfo } from '../shared/games'
+import { seenAsFields } from '../shared/reports-seen'
 import { FilterForm } from './forms/filter-form'
 import { PageHead } from './layout/page-head'
 import { cell, DataTable } from './ui/data-table'
@@ -23,6 +24,21 @@ type Row = Reports['items'][number]
 
 const small = `${buttonGhost} h-[34px] px-3 text-xs`
 
+/**
+ * What the row showed, sent with a decision on it: one made after another
+ * moderator acted is refused, and a report made since is left open.
+ */
+function SeenFields(props: { row: Row }) {
+  const fields = () => seenAsFields(props.row.seen)
+  return (
+    <>
+      <input type="hidden" name="slug" value={props.row.slug} />
+      <input type="hidden" name="seenFlags" value={fields().seenFlags} />
+      <input type="hidden" name="seenReport" value={fields().seenReport} />
+    </>
+  )
+}
+
 /** The flags as a moderator finds the experience, which deals with its reports. */
 function SetFlags(props: { row: Row }) {
   const close = createDismiss()
@@ -33,7 +49,7 @@ function SetFlags(props: { row: Row }) {
       <summary class={`${small} list-none`}>Set flags</summary>
       <div class={`${panel} mt-2 w-44 p-3`}>
         <PostForm action={setFlags} class="grid gap-2">
-          <input type="hidden" name="slug" value={props.row.slug} />
+          <SeenFields row={props.row} />
           <For
             each={
               [
@@ -207,7 +223,7 @@ export function AdminReports(props: { data: Reports; search: ReportsSearch }) {
                     <SetFlags row={row} />
                     <Show when={open()}>
                       <PostForm action={dismiss}>
-                        <input type="hidden" name="slug" value={row.slug} />
+                        <SeenFields row={row} />
                         <button type="submit" class={small}>
                           Dismiss
                         </button>

@@ -2,6 +2,8 @@ import { and, asc, eq, isNull, ne } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { seed } from '../../../seed/seed'
+import { CHANGED_SINCE_OPENED } from '../../shared/decision'
+import type { ReportsSeen } from '../../shared/reports-seen'
 import type { Actor } from '../auth/actor'
 import { db, sql } from '../db'
 import {
@@ -47,6 +49,19 @@ const reportsOn = async (slug: string) =>
     .innerJoin(experiences, eq(experiences.id, experienceReports.experienceId))
     .where(eq(experiences.slug, slug))
 
+const nothingSeen: ReportsSeen = {
+  flags: { bugged: false, broken: false, xpFarm: false },
+  lastReport: null,
+}
+
+/** What the open reports list shows a moderator of an experience. */
+const seenOn = async (slug: string) => {
+  const list = await listReports(moderator)
+  const row = list.ok ? list.items.find((item) => item.slug === slug) : null
+  if (!row) throw new Error(`expected ${slug} in the open reports`)
+  return row.seen
+}
+
 describe('the admin', () => {
   beforeAll(async () => {
     await seed(db, NOW)
@@ -64,7 +79,7 @@ describe('the admin', () => {
     ] as const) {
       expect(await getAdminMenu(actor)).toEqual({ ok: false, reason })
       expect(await listReports(actor)).toEqual({ ok: false, reason })
-      expect(await dismissReports(actor, REPORTED, NOW)).toEqual({
+      expect(await dismissReports(actor, REPORTED, nothingSeen, NOW)).toEqual({
         ok: false,
         reason,
       })
@@ -73,6 +88,7 @@ describe('the admin', () => {
           actor,
           REPORTED,
           { bugged: true, broken: false, xpFarm: false },
+          nothingSeen,
           NOW,
         ),
       ).toEqual({ ok: false, reason })
@@ -141,6 +157,7 @@ describe('the admin', () => {
         moderator,
         REPORTED,
         { bugged: true, broken: false, xpFarm: false },
+        await seenOn(REPORTED),
         NOW,
       ),
     ).toEqual({ ok: true })
@@ -154,9 +171,14 @@ describe('the admin', () => {
     ).toBe(true)
 
     // Dismissing deals with them as well, and they move to the other tab.
-    expect(await dismissReports(moderator, 'rooftop-gun-game', NOW)).toEqual({
-      ok: true,
-    })
+    expect(
+      await dismissReports(
+        moderator,
+        'rooftop-gun-game',
+        await seenOn('rooftop-gun-game'),
+        NOW,
+      ),
+    ).toEqual({ ok: true })
     const after = await listReports(moderator)
     expect(after.ok && after.counts).toEqual({ open: 0, dismissed: 2 })
     const dismissed = await listReports(moderator, { state: 'dismissed' })
@@ -200,6 +222,96 @@ describe('the admin', () => {
         ),
       )
     expect(open).toEqual([{ type: 'broken' }])
+  })
+
+  it('refuses a decision on reports another moderator has since acted on', async () => {
+    const [target] = await db
+      .select({ slug: experiences.slug, ownerId: experiences.ownerId })
+      .from(experiences)
+      .where(
+        and(
+          eq(experiences.status, 'published'),
+          isNull(experiences.deletedAt),
+          eq(experiences.bugged, false),
+          eq(experiences.broken, false),
+          eq(experiences.xpFarm, false),
+          ne(experiences.ownerId, 'seed-recruit-11'),
+          ne(experiences.ownerId, 'seed-recruit-12'),
+        ),
+      )
+      .limit(1)
+    const { slug } = target
+    const first: Actor = { id: 'seed-recruit-11', role: 'user' }
+    const second: Actor = { id: 'seed-recruit-12', role: 'user' }
+    const aMoment = () => new Promise((resolve) => setTimeout(resolve, 5))
+    const flagsOf = async () =>
+      (
+        await db
+          .select({
+            bugged: experiences.bugged,
+            broken: experiences.broken,
+            xpFarm: experiences.xpFarm,
+          })
+          .from(experiences)
+          .where(eq(experiences.slug, slug))
+      )[0]
+    const openKinds = async () =>
+      (await reportsOn(slug))
+        .filter((report) => !report.resolvedAt)
+        .map((report) => report.type)
+        .sort()
+
+    expect(await reportExperience(first, slug, 'bugged')).toEqual({ ok: true })
+    // One moderator opens the reports and is slow to decide.
+    const seenFirst = await seenOn(slug)
+    // Meanwhile another marks it broken, and a player reports an XP farm.
+    expect(
+      await setHealthFlags(
+        admin,
+        slug,
+        { bugged: false, broken: true, xpFarm: false },
+        await seenOn(slug),
+        NOW,
+      ),
+    ).toEqual({ ok: true })
+    await aMoment()
+    expect(await reportExperience(second, slug, 'xp_farm')).toEqual({
+      ok: true,
+    })
+
+    // What the first decides from the page as they saw it is refused.
+    const stale = {
+      ok: false,
+      reason: 'invalid',
+      errors: { form: CHANGED_SINCE_OPENED },
+    }
+    expect(
+      await setHealthFlags(
+        moderator,
+        slug,
+        { bugged: true, broken: false, xpFarm: false },
+        seenFirst,
+        NOW,
+      ),
+    ).toEqual(stale)
+    expect(await dismissReports(moderator, slug, seenFirst, NOW)).toEqual(stale)
+    expect(await flagsOf()).toEqual({
+      bugged: false,
+      broken: true,
+      xpFarm: false,
+    })
+    expect(await openKinds()).toEqual(['xp_farm'])
+
+    // Loaded again, it shows what changed. A report made again after that
+    // has not been seen, and stays open when the rest are dismissed.
+    const seenAgain = await seenOn(slug)
+    expect(seenAgain.flags.broken).toBe(true)
+    await aMoment()
+    expect(await reportExperience(first, slug, 'bugged')).toEqual({ ok: true })
+    expect(await dismissReports(moderator, slug, seenAgain, NOW)).toEqual({
+      ok: true,
+    })
+    expect(await openKinds()).toEqual(['bugged'])
   })
 
   it('lists experiences in every state but draft, and delists and lists them again', async () => {
