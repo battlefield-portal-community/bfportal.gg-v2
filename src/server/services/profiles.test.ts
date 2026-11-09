@@ -1,9 +1,11 @@
-import { eq } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { seed } from '../../../seed/seed'
+import type { Actor } from '../auth/actor'
 import { db, sql } from '../db'
-import { updates, user } from '../db/schema'
+import { snippetLikes, snippets, updates, user } from '../db/schema'
+import { setSnippetLike } from './likes'
 import { getProfile } from './profiles'
 
 const NOW = new Date('2026-10-13T12:00:00Z')
@@ -61,6 +63,46 @@ describe('profile', () => {
     // The first page of them.
     expect(liked?.cards.length).toBe(Math.min(liked?.counts.liked ?? 0, 12))
     expect(liked?.counts.liked).toBeGreaterThan(0)
+  })
+
+  it('counts likes on their snippets among the likes they received', async () => {
+    const id = await discordIdOf('Matavatar')
+    const received = async () =>
+      (await getProfile(id, 'experiences'))?.counts.likesReceived
+    const [snippet] = await db
+      .select({ id: snippets.id, slug: snippets.slug })
+      .from(snippets)
+      .where(eq(snippets.title, 'AI wave spawner'))
+    const likesOnIt = async () =>
+      (
+        await db
+          .select({ value: count() })
+          .from(snippetLikes)
+          .where(eq(snippetLikes.snippetId, snippet.id))
+      )[0].value
+    const liker: Actor = { id: 'seed-recruit-30', role: 'user' }
+    const before = await received()
+    if (before === undefined) throw new Error('expected the profile')
+
+    expect(await setSnippetLike(liker, snippet.slug, true)).toMatchObject({
+      ok: true,
+    })
+    expect(await received()).toBe(before + 1)
+    await setSnippetLike(liker, snippet.slug, false)
+    expect(await received()).toBe(before)
+
+    // Taken off the listings, its likes are no one's to see.
+    await setSnippetLike(liker, snippet.slug, true)
+    const onIt = await likesOnIt()
+    await db
+      .update(snippets)
+      .set({ status: 'unpublished' })
+      .where(eq(snippets.id, snippet.id))
+    expect(await received()).toBe(before + 1 - onIt)
+    await db
+      .update(snippets)
+      .set({ status: 'published' })
+      .where(eq(snippets.id, snippet.id))
   })
 
   it('counts only the update posts a visitor could see', async () => {

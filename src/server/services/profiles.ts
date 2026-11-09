@@ -17,6 +17,7 @@ import {
   experienceLikes,
   experiences,
   siteSettings,
+  snippetLikes,
   snippets,
   updates,
   user,
@@ -91,37 +92,46 @@ export async function getProfile(
     ),
   )
 
-  const [[made], [shared], [received], [posted], [likedCount]] =
-    await Promise.all([
-      db.select({ value: count() }).from(experiences).where(theirs),
-      db
-        .select({ value: count() })
-        .from(snippets)
-        .where(and(snippetVisible, eq(snippets.ownerId, person.id))),
-      db
-        .select({ value: count() })
-        .from(experienceLikes)
-        .innerJoin(
-          experiences,
-          eq(experiences.id, experienceLikes.experienceId),
-        )
-        .where(and(visible, eq(experiences.ownerId, person.id))),
-      // The same posts the updates feed would show.
-      db
-        .select({ value: count() })
-        .from(updates)
-        .leftJoin(experiences, eq(experiences.id, updates.experienceId))
-        .leftJoin(snippets, eq(snippets.id, updates.snippetId))
-        .where(
-          and(
-            eq(updates.authorId, person.id),
-            eq(updates.status, 'published'),
-            isNull(updates.deletedAt),
-            or(visible, snippetVisible),
-          ),
+  const [
+    [made],
+    [shared],
+    [received],
+    [receivedOnSnippets],
+    [posted],
+    [likedCount],
+  ] = await Promise.all([
+    db.select({ value: count() }).from(experiences).where(theirs),
+    db
+      .select({ value: count() })
+      .from(snippets)
+      .where(and(snippetVisible, eq(snippets.ownerId, person.id))),
+    db
+      .select({ value: count() })
+      .from(experienceLikes)
+      .innerJoin(experiences, eq(experiences.id, experienceLikes.experienceId))
+      .where(and(visible, eq(experiences.ownerId, person.id))),
+    // And on their snippets, those anyone can see, as their tab lists.
+    db
+      .select({ value: count() })
+      .from(snippetLikes)
+      .innerJoin(snippets, eq(snippets.id, snippetLikes.snippetId))
+      .where(and(snippetVisible, eq(snippets.ownerId, person.id))),
+    // The same posts the updates feed would show.
+    db
+      .select({ value: count() })
+      .from(updates)
+      .leftJoin(experiences, eq(experiences.id, updates.experienceId))
+      .leftJoin(snippets, eq(snippets.id, updates.snippetId))
+      .where(
+        and(
+          eq(updates.authorId, person.id),
+          eq(updates.status, 'published'),
+          isNull(updates.deletedAt),
+          or(visible, snippetVisible),
         ),
-      db.select({ value: count() }).from(experiences).where(liked),
-    ])
+      ),
+    db.select({ value: count() }).from(experiences).where(liked),
+  ])
 
   // "Show more" grows the page: page two holds the first two pages.
   const limit = page * FEED_PAGE_SIZE
@@ -150,7 +160,7 @@ export async function getProfile(
       experiences: made.value,
       snippets: shared.value,
       liked: likedCount.value,
-      likesReceived: received.value,
+      likesReceived: received.value + receivedOnSnippets.value,
       updates: posted.value,
     },
     tab,
