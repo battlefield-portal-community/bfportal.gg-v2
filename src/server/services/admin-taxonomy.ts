@@ -153,11 +153,19 @@ export async function saveCategory(
   if (refused) return refused
   const name = change.name.trim()
   if (name.length < 2) return refuse('invalid', { name: 'Give it a name.' })
+  // Named one by one: what it is, its kind and its game, is never changed,
+  // whatever else a caller passes.
+  const values = {
+    name,
+    visible: change.visible,
+    selectableOnForm: change.selectableOnForm,
+    marksTemplate: change.marksTemplate,
+  }
   try {
     if ('id' in target) {
       const [changed] = await db
         .update(categories)
-        .set({ ...change, name })
+        .set(values)
         .where(eq(categories.id, target.id))
         .returning({ id: categories.id })
       return changed ? { ok: true } : refuse('not-found')
@@ -165,8 +173,7 @@ export async function saveCategory(
     const slug = slugify(name)
     if (!slug) return refuse('invalid', { name: 'Give it a name in letters.' })
     await db.insert(categories).values({
-      ...change,
-      name,
+      ...values,
       slug,
       kind: target.kind,
       game: target.game,
@@ -208,11 +215,20 @@ export async function saveTagGroup(
   if (refused) return refused
   const name = change.name.trim()
   if (name.length < 2) return refuse('invalid', { name: 'Give it a name.' })
+  // Named one by one: its game and address are never changed.
+  const values = {
+    name,
+    description: change.description,
+    filter: change.filter,
+    pick: change.pick,
+    creatorSelectable: change.creatorSelectable,
+    showOnCard: change.showOnCard,
+  }
   try {
     if ('id' in target) {
       const [changed] = await db
         .update(tagGroups)
-        .set({ ...change, name })
+        .set(values)
         .where(eq(tagGroups.id, target.id))
         .returning({ id: tagGroups.id })
       return changed ? { ok: true } : refuse('not-found')
@@ -220,8 +236,7 @@ export async function saveTagGroup(
     const slug = slugify(name)
     if (!slug) return refuse('invalid', { name: 'Give it a name in letters.' })
     await db.insert(tagGroups).values({
-      ...change,
-      name,
+      ...values,
       slug,
       game: target.game,
       sortOrder: await lastPlace(
@@ -275,19 +290,18 @@ export async function saveTag(
   if (!group) {
     return refuse('invalid', { groupId: 'Choose one of this game’s groups.' })
   }
+  // Named one by one: its game, address and Portal's id for it are never
+  // changed.
+  const values = { name, visible: change.visible, groupId: change.groupId }
   try {
     if ('id' in target) {
-      await db
-        .update(tags)
-        .set({ ...change, name })
-        .where(eq(tags.id, target.id))
+      await db.update(tags).set(values).where(eq(tags.id, target.id))
       return { ok: true }
     }
     const slug = slugify(name)
     if (!slug) return refuse('invalid', { name: 'Give it a name in letters.' })
     await db.insert(tags).values({
-      ...change,
-      name,
+      ...values,
       slug,
       game,
       sortOrder: await lastPlace(db, tags, eq(tags.groupId, change.groupId)),

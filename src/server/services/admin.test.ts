@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, ne } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, ne } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { seed } from '../../../seed/seed'
@@ -22,11 +22,14 @@ import {
 } from './admin-content'
 import { dismissReports, listReports, setHealthFlags } from './admin-reports'
 import {
+  type CategoryChange,
   getTaxonomy,
   moveInList,
   saveCategory,
   saveTag,
   saveTagGroup,
+  type TagChange,
+  type TagGroupChange,
 } from './admin-taxonomy'
 import { listUsers, setRole } from './admin-users'
 import { getExperience } from './experience'
@@ -410,6 +413,82 @@ describe('the admin', () => {
       ok: false,
       errors: { form: expect.stringContaining('needs an admin') },
     })
+  })
+
+  it('changes only what an admin may change, whatever else is sent', async () => {
+    const [category] = await db
+      .select()
+      .from(categories)
+      .where(
+        and(
+          eq(categories.kind, 'experience_main'),
+          eq(categories.slug, 'multiplayer'),
+        ),
+      )
+    const [group] = await db
+      .select()
+      .from(tagGroups)
+      .where(and(eq(tagGroups.game, 'bf6'), eq(tagGroups.slug, 'rules')))
+    const [tag] = await db
+      .select()
+      .from(tags)
+      .where(and(eq(tags.groupId, group.id), isNotNull(tags.portalId)))
+      .limit(1)
+    // What a request may carry besides: the fields that make a new row.
+    const extra = {
+      kind: 'script_main',
+      game: 'bf2042',
+      slug: 'taken-over',
+      portalId: 'not-portals',
+      sortOrder: 99,
+    }
+
+    expect(
+      await saveCategory(admin, { id: category.id }, {
+        name: 'Versus',
+        visible: category.visible,
+        selectableOnForm: category.selectableOnForm,
+        marksTemplate: category.marksTemplate,
+        ...extra,
+      } as CategoryChange),
+    ).toEqual({ ok: true })
+    expect(
+      await saveTagGroup(admin, { id: group.id }, {
+        name: 'Gameplay rules',
+        description: group.description,
+        filter: group.filter,
+        pick: group.pick,
+        creatorSelectable: group.creatorSelectable,
+        showOnCard: group.showOnCard,
+        ...extra,
+      } as TagGroupChange),
+    ).toEqual({ ok: true })
+    expect(
+      await saveTag(admin, { id: tag.id }, {
+        name: 'Renamed',
+        visible: tag.visible,
+        groupId: tag.groupId,
+        ...extra,
+      } as TagChange),
+    ).toEqual({ ok: true })
+
+    const [categoryNow] = await db
+      .select()
+      .from(categories)
+      .where(eq(categories.id, category.id))
+    expect(categoryNow).toEqual({ ...category, name: 'Versus' })
+    const [groupNow] = await db
+      .select()
+      .from(tagGroups)
+      .where(eq(tagGroups.id, group.id))
+    expect(groupNow).toEqual({ ...group, name: 'Gameplay rules' })
+    const [tagNow] = await db.select().from(tags).where(eq(tags.id, tag.id))
+    expect(tagNow).toEqual({ ...tag, name: 'Renamed' })
+
+    // Back as they were, for the tests after this one.
+    await saveCategory(admin, { id: category.id }, category)
+    await saveTagGroup(admin, { id: group.id }, group)
+    await saveTag(admin, { id: tag.id }, tag)
   })
 
   it('lets an admin add, change and order categories, tag groups and tags', async () => {
