@@ -34,7 +34,7 @@ import { renderMarkdown } from '../markdown'
 import { discardDraft } from './drafts'
 import { type EditPayload, editPayloadSchema } from './edit-payload'
 import type { Editable } from './experience-drafts'
-import { keepFilesWithDraft, takeHeldFiles } from './held-files'
+import { claimHeldFiles, keepFilesWithDraft, takeHeldFiles } from './held-files'
 import { prepareExperience, writeAround } from './prepare-experience'
 import type { Executor } from './shared'
 import { resendLimit } from './submission-limits'
@@ -77,7 +77,7 @@ export async function submitExperienceEdit(
     { lookup: options.lookup, now },
   )
   if (!ready.ok) return ready
-  const { prepared, held } = ready
+  const { prepared } = ready
 
   return db.transaction(async (tx) => {
     // As the template switch and a moderator's decision take them, so one
@@ -97,18 +97,12 @@ export async function submitExperienceEdit(
     if (!still) return refuse('not-found')
     // Its files are held with it until a moderator decides: what it named
     // before and no longer does is let go.
-    if (held.length > 0) {
-      const files = await takeHeldFiles(tx, actor, prepared.files, {
-        now,
-        draft: live.id,
-      })
-      if (files.length < held.length) {
-        return refuse('invalid', {
-          files: 'A file is no longer held. Add it again.',
-        })
-      }
-    }
-    await keepFilesWithDraft(tx, actor, live.id, prepared.files, now)
+    const claimed = await claimHeldFiles(tx, actor, prepared.files, {
+      now,
+      draft: live.id,
+    })
+    if (!claimed.ok) return claimed
+    await keepFilesWithDraft(tx, live.id, claimed.ids)
 
     const [pending] = await tx
       .select({ id: revisions.id, payload: revisions.payload })

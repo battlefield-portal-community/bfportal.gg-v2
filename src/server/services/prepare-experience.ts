@@ -25,7 +25,7 @@ import { lookupExperience } from '../integrations/gametools'
 import { allowLookup } from '../rate-limit'
 import type { PreparedExperience } from './edit-payload'
 import type { Editable } from './experience-drafts'
-import { heldFilesFor, type takeHeldFiles } from './held-files'
+import { FILE_GONE, heldFilesFor, type takeHeldFiles } from './held-files'
 import { filesInExport, readExport } from './portal-export'
 import { type Executor, groupBy } from './shared'
 
@@ -121,7 +121,7 @@ export async function prepareExperience(
     : []
   const exported = held.filter((file) => file.kind === 'export')
   if (held.length < new Set(form.files).size && info.hasExport) {
-    errors.files = 'A file is no longer held. Add it again.'
+    errors.files = FILE_GONE
   } else if (exported.length > 1) {
     errors.files = 'Add one export.'
   }

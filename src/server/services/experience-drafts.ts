@@ -17,7 +17,12 @@ import { categories, experiences } from '../db/schema'
 import { renderMarkdown } from '../markdown'
 import { DRAFT_LIMIT, discardDraft } from './drafts'
 import { lastSentEdit } from './experience-edits'
-import { heldIdsIn, keepFilesWithDraft, letGoOfDraftFiles } from './held-files'
+import {
+  claimHeldFiles,
+  heldIdsIn,
+  keepFilesWithDraft,
+  letGoOfDraftFiles,
+} from './held-files'
 import { type Executor, violates } from './shared'
 
 // An experience saved without being submitted: a draft, which only its owner
@@ -239,22 +244,33 @@ export async function saveExperienceDraft(
     // reviews that. Only the form is saved, for its owner to send later.
     const sent = !UNSENT.some((status) => status === draft.status)
     return db.transaction(async (tx) => {
+      // The experience is held before its files, as everywhere.
+      const still = and(
+        eq(experiences.id, draft.id),
+        eq(experiences.status, draft.status),
+        // Still there: deleted in another tab since it was read, it is
+        // not saved into.
+        isNull(experiences.deletedAt),
+      )
+      const [held] = await tx
+        .select({ id: experiences.id })
+        .from(experiences)
+        .where(still)
+        .for('update')
+      if (!held) return refuse('not-found')
+      // Every file it names is taken before anything is written, so a save
+      // refused for one writes nothing.
+      const claimed = await claimHeldFiles(tx, actor, files, {
+        now,
+        draft: draft.id,
+      })
+      if (!claimed.ok) return claimed
       // Saved as it is: a draft stays a draft, and one sent back stays sent
       // back until it is submitted again.
-      const [saved] = await tx
+      await tx
         .update(experiences)
         .set(sent ? { draftForm: values.draftForm } : values)
-        .where(
-          and(
-            eq(experiences.id, draft.id),
-            eq(experiences.status, draft.status),
-            // Still there: deleted in another tab since it was read, it is
-            // not saved into.
-            isNull(experiences.deletedAt),
-          ),
-        )
-        .returning({ id: experiences.id })
-      if (!saved) return refuse('not-found')
+        .where(still)
       // A live one's edit, waiting or sent back, still names the files it
       // was sent with. One in review was stored as sent, so its saved form
       // is all that names any. Read after the row is held: an edit sent
@@ -262,7 +278,7 @@ export async function saveExperienceDraft(
       const sentEdit = isLive(draft.status)
         ? await lastSentEdit(draft.id, tx)
         : null
-      await keepFilesWithDraft(tx, actor, draft.id, files, now, {
+      await keepFilesWithDraft(tx, draft.id, claimed.ids, {
         alsoKeep: sentEdit?.form.files,
       })
       await discardDraft(tx, actor)
@@ -301,6 +317,10 @@ export async function saveExperienceDraft(
             form: `You have ${drafts} drafts, the most you can keep. Submit or delete one first.`,
           })
         }
+        // Taken before the draft is made, so one refused for a file is not
+        // made at all.
+        const claimed = await claimHeldFiles(tx, actor, files, { now })
+        if (!claimed.ok) return claimed
         const [created] = await tx
           .insert(experiences)
           .values({
@@ -312,7 +332,7 @@ export async function saveExperienceDraft(
             submittedAt: now,
           })
           .returning({ id: experiences.id })
-        await keepFilesWithDraft(tx, actor, created.id, files, now)
+        await keepFilesWithDraft(tx, created.id, claimed.ids)
         await discardDraft(tx, actor)
         return { ok: true as const, slug }
       })

@@ -15,7 +15,7 @@ import {
   saveExperienceDraft,
 } from './experience-drafts'
 import { submitExperience } from './experience-submissions'
-import { heldFilesFor, holdFiles } from './held-files'
+import { FILE_GONE, heldFilesFor, holdFiles } from './held-files'
 import { decideSubmission } from './moderation'
 import { listOwnSubmissions } from './own-submissions'
 import { getDraftEditPage } from './submit-page'
@@ -418,6 +418,91 @@ describe('drafts', () => {
     // The submission then finds its files gone, and says so.
     expect(await submitting).toMatchObject({ ok: false })
     expect(await row('both-at-once')).toMatchObject({ status: 'draft' })
+  })
+
+  it('saves nothing when a file it names is no longer its to keep', async () => {
+    const owner = writer(33)
+    const hold = async (filename: string, at: Date) => {
+      const held = await holdFiles(
+        owner,
+        [{ slot: 'added', filename, text: '// kept' }],
+        at,
+      )
+      if (!held.ok) throw new Error('expected the file to be held')
+      return held.held[0].id
+    }
+    const day = 24 * 60 * 60 * 1000
+    const later = new Date(NOW.getTime() + day + 60 * 60 * 1000)
+    const gone = { ok: false, reason: 'invalid', errors: { files: FILE_GONE } }
+
+    // A file chosen more than a day ago and never saved has been let go.
+    const stale = await hold('Stale.ts', NOW)
+    expect(
+      await saveExperienceDraft(
+        owner,
+        form({ title: 'Never Made', files: [stale] }),
+        later,
+      ),
+    ).toEqual(gone)
+    expect(await row('never-made')).toBeUndefined()
+
+    await saveExperienceDraft(owner, form({ title: 'First Claim' }), later)
+    await saveExperienceDraft(owner, form({ title: 'Second Claim' }), later)
+    expect(
+      await saveExperienceDraft(
+        owner,
+        form({ editing: 'first-claim', title: 'Renamed', files: [stale] }),
+        later,
+      ),
+    ).toEqual(gone)
+    expect(await row('first-claim')).toMatchObject({ title: 'First Claim' })
+
+    // A file one draft has saved is that draft's; another cannot take it.
+    const shared = await hold('Shared.ts', later)
+    expect(
+      await saveExperienceDraft(
+        owner,
+        form({ editing: 'first-claim', title: 'First Claim', files: [shared] }),
+        later,
+      ),
+    ).toMatchObject({ ok: true })
+    expect(
+      await saveExperienceDraft(
+        owner,
+        form({ editing: 'second-claim', title: 'Taken', files: [shared] }),
+        later,
+      ),
+    ).toEqual(gone)
+    expect(await row('second-claim')).toMatchObject({ title: 'Second Claim' })
+    const ownerOf = async (id: string) =>
+      (
+        await db
+          .select({ experienceId: heldFiles.experienceId })
+          .from(heldFiles)
+          .where(eq(heldFiles.id, id))
+      )[0]?.experienceId
+    expect(await ownerOf(shared)).toBe((await row('first-claim')).id)
+
+    // Two saves at once naming one loose file: the first keeps it, and the
+    // second waits for it, then finds it taken.
+    const contested = await hold('Contested.ts', later)
+    const drafts = ['first-claim', 'second-claim']
+    const results = await Promise.all(
+      drafts.map((editing) =>
+        saveExperienceDraft(
+          owner,
+          form({ editing, title: 'Raced', files: [contested] }),
+          later,
+        ),
+      ),
+    )
+    expect(results.filter((result) => result.ok)).toHaveLength(1)
+    const winner = drafts[results.findIndex((result) => result.ok)]
+    const loser = drafts.find((slug) => slug !== winner) ?? ''
+    expect(await ownerOf(contested)).toBe((await row(winner)).id)
+    expect(await row(loser)).toMatchObject({
+      title: loser === 'first-claim' ? 'First Claim' : 'Second Claim',
+    })
   })
 
   it(`keeps up to ${MAX_DRAFTS} drafts an account`, async () => {

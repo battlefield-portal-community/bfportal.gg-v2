@@ -12,6 +12,7 @@ import { discardDraft } from './drafts'
 import { isLive, ownEditable } from './experience-drafts'
 import { submitExperienceEdit } from './experience-edits'
 import {
+  FILE_GONE,
   letGoOfDraftFiles,
   letGoOfHeldFiles,
   takeHeldFiles,
@@ -103,9 +104,7 @@ export async function submitExperience(
               })
             : []
         if (files.length < held.length) {
-          return refuse('invalid', {
-            files: 'A file is no longer held. Add it again.',
-          })
+          return refuse('invalid', { files: FILE_GONE })
         }
         const values = {
           ...prepared.values,

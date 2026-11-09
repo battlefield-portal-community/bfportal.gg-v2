@@ -149,25 +149,56 @@ export async function takeHeldFiles(
     .for('update')
 }
 
+/** What a form is told when a file it names is no longer held for it. */
+export const FILE_GONE = 'A file is no longer held. Add it again.'
+
 /**
- * Saves the form's files with its draft: those it names are held with it
- * from now on, and any the draft had that nothing names are let go. `alsoKeep`
- * is what else still names some: the edit sent from a live one, waiting or
- * sent back. Whatever a form saves, the files held with a draft are only ever
- * what its form and that edit name, so saving again and again does not pile
- * them up out of the count `holdFiles` keeps.
+ * Takes hold of every file a form names, for a save that keeps them, before
+ * anything is written. They are held still until the transaction ends, so
+ * another save naming one of them waits, then finds it taken. Refused if any
+ * is not held for this form now: a save never names a file it did not keep.
+ * `draft` is the draft the form is; files saved with another are not its.
+ */
+export async function claimHeldFiles(
+  executor: Executor,
+  actor: Actor,
+  ids: string[],
+  options: { now?: Date; draft?: number | null } = {},
+): Promise<{ ok: true; ids: string[] } | Refusal> {
+  const wanted = [...new Set(heldIdsIn(ids))]
+  if (wanted.length === 0) return { ok: true, ids: [] }
+  const found = await executor
+    .select({ id: heldFiles.id })
+    .from(heldFiles)
+    .where(
+      and(
+        eq(heldFiles.uploadedBy, actor.id),
+        inArray(heldFiles.id, wanted),
+        heldForForm(options.now ?? new Date(), options.draft ?? null),
+      ),
+    )
+    .for('update')
+  if (found.length < wanted.length) {
+    return refuse('invalid', { files: FILE_GONE })
+  }
+  return { ok: true, ids: wanted }
+}
+
+/**
+ * Saves the form's files with its draft: those it names, claimed first with
+ * `claimHeldFiles`, are held with it from now on, and any the draft had that
+ * nothing names are let go. `alsoKeep` is what else still names some: the
+ * edit sent from a live one, waiting or sent back. Whatever a form saves, the
+ * files held with a draft are only ever what its form and that edit name, so
+ * saving again and again does not pile them up out of the count `holdFiles`
+ * keeps.
  */
 export async function keepFilesWithDraft(
   executor: Executor,
-  actor: Actor,
   draft: number,
-  ids: string[],
-  now = new Date(),
+  wanted: string[],
   options: { alsoKeep?: string[] } = {},
 ) {
-  const wanted = (await heldFilesFor(actor, ids, { now, draft, executor })).map(
-    (file) => file.id,
-  )
   const keeping = [...wanted, ...heldIdsIn(options.alsoKeep)]
   await executor
     .delete(heldFiles)
