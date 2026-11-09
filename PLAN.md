@@ -46,18 +46,18 @@ installed, `package.json` and the lockfile are the record of its version, not th
 | Routing | `@tanstack/solid-router` | 1.170.39 | Comes with the framework |
 | UI | SolidJS | 1.9.17 | Agreed |
 | Build | Vite | 8.3.4 | Comes with the framework |
-| Runtime | Node | 22.12 or newer | Required by the framework |
+| Runtime | Node | 22.12 or newer | Required by the framework. The production image runs 24; CI runs 22 |
 | Server | Nitro, Node preset | 3.0 beta | Comes with the scaffold; a pre-release |
 | Package manager | pnpm | 11.28.5 | Agreed |
-| Database | Postgres | 18 in development; 14 in production today | Agreed; production version open |
+| Database | Postgres | 18 in development, CI and `compose.prod.yml`; the old site runs 14 | Agreed |
 | Postgres driver | Postgres.js (`postgres`), through `drizzle-orm/postgres-js` | 3.4.9 | Agreed |
 | ORM and migrations | Drizzle (`drizzle-orm`, `drizzle-kit`) | 0.45.4, 0.31.11 | Agreed |
-| Login | Better Auth, Discord provider | 1.7.7 | Proposed; wired into the scaffold |
-| Validation | Zod | 4.6.7 | In use for the environment; proposed for forms and the API |
+| Login | Better Auth, Discord provider | 1.7.7 | In use, in `src/server/auth/` |
+| Validation | Zod | 4.6.7 | In use for the environment, forms, server functions and search parameters |
 | Styling | Tailwind (current site is on 3.3.2) | 4.3.3 | In use. The theme holds the mockup's tokens, and Tailwind's default palette is switched off |
-| Markdown | `marked` with `sanitize-html`, server side | 18.1.1, 2.18.0 | Proposed |
+| Markdown | `marked` with `sanitize-html`, server side | 18.1.1, 2.18.0 | In use, in `src/server/markdown.ts` |
 | Code coloring | Shiki, JavaScript regex engine, in the browser | 4.5.0 | In use. `CodeView` sends code plain and colors it once the page runs, a batch of lines at a time; only pages that show code load it. TypeScript, JSON and Godot scenes, in the mockup's four colors |
-| Admin tables and forms | TanStack Table, Form, Query (Solid adapters) | 9.3.1, 1.33.5, 5.104.2 | Proposed, admin routes only |
+| Admin tables and forms | TanStack Table, Form, Query (Solid adapters) | 9.3.1, 1.33.5, 5.104.2 | Proposed, admin routes only. Not installed: the admin screens built so far use the site's own `DataTable`, `FilterForm` and `PostForm` |
 | Tests | Vitest, Playwright | 5.0.4, 1.64.0 | Vitest in use, with happy-dom for component tests; Playwright proposed, and needed for anything that clicks through pages |
 | Lint and format | Biome | 2.5.15 | Agreed |
 
@@ -142,6 +142,10 @@ jobs/                validate experiences, sync tags, post playtests and reminde
                      CLI entry points)
 tools/import/        the one-off legacy data import
 ```
+
+As of 2026-11-09 the routes are not in a `(public)` group, and `api/` holds the auth
+callback, the health check and file downloads. `jobs/`, `tools/import/` and the
+Discord and Cloudflare integrations do not exist yet; gametools is the one integration.
 
 ## Rendering
 
@@ -260,6 +264,14 @@ listing, the old address redirects.
 | `/api/experiences/`, `/api/users/` | Public read API |
 | `/api/tags/`, `/api/categories/` | Autocomplete sources |
 | `/admin/…` | Admin and moderation |
+
+Not built as of 2026-11-09: the redirects from `/experiences/`, `/experiences/featured/`,
+`/category/<name>/` and `/tutorials/`; the profile's lists as their own paths, which
+are a `?tab=` on the profile for now; `/updates/feed.xml`; one update post's page;
+`/playtests/new/`; `/sitemap.xml`, `/robots.txt` and the `/api/` routes besides the
+auth callback. Built besides the table: `/files/<id>/`, one project file's page;
+`/edits/<edit>/files/<file>/`, a file an edit would store, for staff; and
+`/api/health`.
 
 Changes to the URL surface:
 
@@ -559,10 +571,11 @@ site does the least it must to agree with it:
 | Changing something in review and sending it again | Done for experiences, 2026-10-17, and for snippets 2026-10-18, which have no Save since they have no drafts. Its owner opens it in the form from its page or "Your submissions". Save keeps the form and leaves what was sent, which is what the moderator reviews; Resubmit replaces what was sent, keeps its place in the queue and is not counted again toward the limits. Sending changes is held to 20 an hour per account (`RESENDS_PER_HOUR`), since each looks the code up again |
 | Editing something live | Done for experiences, 2026-10-17. Done for snippets 2026-10-18 the same way: the edit is a revision with `snippet_id`, its payload `snippet` holds the checked form (title, description, category, script), and the review screen shows the old script above the new one. An Edit button on its page, and Edit in "Your submissions", open the same form. Submitting checks it as a submission is and stores the result as the experience's one pending edit (`revisions.payload.form`), beside the live page, which stays as it is. Sending again replaces what the edit asks for, so the moderator reviews everything asked for together; the template switch on the page joins the same edit. The form opens on the waiting or sent-back edit, with the note. The review screen shows each field that changes beside its live value. Approving writes it as a submission is written: an account already credited keeps its answer, new files replace the old, and when Portal did not answer and no new export was sent, the map rotation, Portal's tags and Portal's facts stay as they were. Delisted ones cannot be edited yet; an edit cannot be withdrawn except for the template offer |
 | Deciding on what its owner has changed since | Agreed 2026-10-17: no lock. Owners are never blocked by a review in progress. `experiences.version`, `snippets.version` (2026-10-18) and `revisions.version` move on with every change its owner sends, the template switch included; the review screen sends the version it showed, and a decision on any other version is refused with "It changed while you were reviewing. Reload to see what changed." The check is in the same statement or transaction as the decision |
-| Writing notes against fields, and removing something for good | Not built. The review screen has one note box and two buttons |
+| Writing notes against fields | Not built. The review screen has one note box and two buttons |
+| Removing something for good | Built 2026-10-17 for experiences and 2026-10-18 for snippets, under "Manage" at the foot of its page, with a note. Not on the review screen yet |
 | "Your submissions" | Done, 2026-10-16, at `/submissions/`, from the header's account menu and the submit form's side: every experience and snippet of the visitor's, most recently changed first, each with its status, request and review, what last happened, and its place in the queue while it waits. Edit is on drafts, ones sent back, ones in review and live ones. The mockup's filters are not built |
 | Submitting a snippet | Done, 2026-10-13. It is created `pending`; its owner sees it at its own address with its status, and nobody else does until it is approved |
-| Reviewing a snippet | Done, the least of it: waiting snippets are in the review queue, and Approve and Request changes are on the snippet's own page for a moderator |
+| Reviewing a snippet | Done, the least of it: waiting snippets are in the review queue, and Approve and Request changes are on the snippet's own page for a moderator. An edit to a live one is decided at `/admin/edits/<id>`, since 2026-10-18 |
 | The playtest copy | Not built. No playtest can be started from the site yet |
 | A snippet held to a size | Done in the form and the service: 400 lines, `MAX_SNIPPET_LINES` in `src/shared/snippet-form.ts`. The number is still a placeholder, and the column itself has no limit |
 
@@ -769,9 +782,9 @@ The schema is built this way as of 2026-10-13: `tag_groups`, the reshaped `tags`
 `experiences.xp_mode`.
 The database refuses a tag in another game's group and an alias pointing at another
 game's tag. It cannot say "a tag of this experience's game", so the service checks
-that, as it does for categories. Not built yet: the registry in `src/shared/games.ts`,
-which arrives with the first page that reads it, the nightly sync, and the admin
-screen.
+that, as it does for categories. The registry in `src/shared/games.ts` was built
+2026-10-13 and the admin screen 2026-10-18; see "Admin" under "Feature inventory".
+Not built yet: the nightly sync.
 
 #### SDK versions
 
@@ -1151,9 +1164,9 @@ Built 2026-10-16, on the submit form's "Project files" section:
   beside what is live with what approving it does, says nothing else changes, and
   says when approving would make the files public. A note sent back shows to the owner above the
   files.
-- The queue offers only edits whose every change the site can apply, which is the
-  template offer alone for now. Any other edit waits for the edit form: approving it
-  here would mark it approved and change nothing.
+- The queue offered only the template offer until the edit form came, 2026-10-17.
+  Since then it lists every pending edit, to experiences and, from 2026-10-18, to
+  snippets.
 - Not yet: Portal's default description is not flagged, and nothing from the export
   is shown as text on the page.
 
@@ -1455,13 +1468,13 @@ statuses are defined under "Submission states".
 | Action | Who | Effect |
 |---|---|---|
 | Save a draft | Logged-in user | New, 2026-10-13. An experience or snippet as `draft`, seen only by its owner. Built for experiences 2026-10-16, with deleting a draft; see "Submission states" |
-| Submit | Logged-in user | Experience or snippet as `pending`; approval request posted to the Discord approval channel. Limits: 5 waiting and 10 a day for an account that is not staff, deleted ones included in the day's 10 |
-| Approve submission | Moderator, admin | `published`; first approval posts the announcement to the Discord success channel, once |
+| Submit | Logged-in user | Experience or snippet as `pending`; approval request posted to the Discord approval channel. Limits: 5 waiting and 10 a day for an account that is not staff, deleted ones included in the day's 10. Built 2026-10-13, without the Discord post |
+| Approve submission | Moderator, admin | `published`; first approval posts the announcement to the Discord success channel, once. Built 2026-10-13, without the announcement |
 | Request changes | Moderator, admin | New, 2026-10-13, in place of "reject". `changes_requested`, with a note and notes on particular fields. It is not an end: see the next row |
-| Fix and resubmit | Owner, collaborator | New, 2026-10-13. Back to `pending`, on the same row and address. Built for an experience's owner 2026-10-17 |
+| Fix and resubmit | Owner, collaborator | New, 2026-10-13. Back to `pending`, on the same row and address. Built for an experience's owner 2026-10-17, and for a snippet's 2026-10-18 |
 | Remove | Moderator, admin | New, 2026-10-13. `removed`, with a note. For spam or something badly wrong; it cannot be submitted again. Built for experiences 2026-10-17, under "Manage" at the foot of its page: a note is needed, and its owner sees it there and in their list. Built for snippets 2026-10-18, the same way. Not from the review screen yet |
-| Edit | Owner, collaborator | A pending revision; the live page is unchanged; edit request posted to Discord |
-| Approve an edit, or request changes to it | Moderator, admin | Payload applied; or the revision is `changes_requested` and its owner fixes it and sends it again |
+| Edit | Owner, collaborator | A pending revision; the live page is unchanged; edit request posted to Discord. Built for owners, for experiences 2026-10-17 and snippets 2026-10-18, without the Discord post |
+| Approve an edit, or request changes to it | Moderator, admin | Payload applied; or the revision is `changes_requested` and its owner fixes it and sends it again. Built with the edit |
 | Mark own experience bugged or broken | Owner, collaborator | Immediate |
 | Add or remove a credited account | Owner | New. Immediate. The account is shown only once that user accepts |
 | Offer its files as a template, or stop | Owner | New, 2026-10-16. Stopping is immediate. Offering is immediate before it is sent in or once sent back, refused while it is in review, and an edit for a moderator once published. See "Project files" |
@@ -1470,8 +1483,8 @@ statuses are defined under "Submission states".
 | Add or change a named credit | Owner | New. Part of an edit, so it goes to moderation |
 | Delete | Owner | A soft delete. Collaborators cannot. Built for experiences 2026-10-17, in any state, under "Manage" at the foot of its page with a box to tick; a draft also has Delete on its form. An edit waiting on it goes with it. Built for snippets 2026-10-18, the same way (`ContentManage`) |
 | Ask to clear bugged and broken | Owner, collaborator | Goes to moderation |
-| Report bugged, broken or XP farm | Any other logged-in user | A report row; no flag changes |
-| Set featured or trending | Admin | Immediate |
+| Report bugged, broken or XP farm | Any other logged-in user | A report row; no flag changes. Built 2026-10-13 |
+| Set featured or trending | Admin | Immediate. Built 2026-10-18, in the admin's experience and snippet lists |
 | Set a health flag, or dismiss reports | Moderator, admin | Immediate. Changed 2026-10-18 from admins only: moderators act on reports, as the schema and the mockup had it. Either deals with the experience's open reports |
 | Unpublish | Moderator, admin | `unpublished`. Built 2026-10-18 for experiences and snippets as "Delist", with "List again" |
 | Give someone a role | Admin | New, 2026-10-18. Immediate. Never to oneself, and never leaving the site with no admin |
@@ -1557,6 +1570,11 @@ What "feature complete" means, by area.
 - The header shows the signed-in user's avatar with a menu: profile, account settings,
   log out, and Review for moderators and admins.
 - Optional "login required to view profiles" site setting. `hide_username`.
+- Built as of 2026-11-09: Discord login; the profile with its role badge, join date,
+  counts, and three tabs (experiences, snippets, liked); the header's menu with "Your
+  submissions", Review for staff, and "Sign out". The profile reads the site setting
+  and honors `hide_username`. Not built: the updates tab, the owner badge from
+  `OWNERS`, the account settings page, and the profile link in the header's menu.
 
 **Submitting and editing**
 
@@ -1694,11 +1712,14 @@ What "feature complete" means, by area.
   marked and the unchanged fields listed. Since 2026-10-18 the files it sends are
   listed beside the live ones, each to read and download before deciding, and a
   file sent under a name it already has is compared by what is in it: "(new
-  contents)".
+  contents)". Since 2026-11-09 each file inside a sent export is listed under
+  it, to read and download, as approving stores it.
 - Reports: counts per experience by kind, the flags set now, and "set flags" or
   "dismiss". A report never changes a flag by itself. Either deals with the open
   reports, which move from "Open" to "Dealt with"; the mockup's second tab said
-  "Dismissed", but setting the flags deals with them too.
+  "Dismissed", but setting the flags deals with them too. Since 2026-11-09 a
+  decision is refused if the flags changed after the screen was loaded, and deals
+  only with the reports made by then; one made since stays open.
 - Featured and trending are switches an admin presses, in the experience and snippet
   lists; a moderator sees where they stand. Not yet on the review screen.
 - Experience list with search by title, code and owner, tabs by status, filters
@@ -1867,8 +1888,13 @@ container and dump for rollback.
 The same shape as today, so nothing about hosting has to change at once:
 
 - GitHub Actions builds a Docker image and pushes it to GHCR; docker-compose runs it
-  next to Postgres, with Cloudflare in front.
-- Schema migrations run as a deploy step, not at application start.
+  next to Postgres, with Cloudflare in front. As of 2026-11-09, CI runs the checks on
+  every push to `main` and every pull request, but builds no image. `compose.prod.yml`
+  builds the image from the `Dockerfile` on the host and runs it beside Postgres 18 and
+  a Cloudflare Tunnel (`cloudflared`).
+- Schema migrations run as a deploy step, not at application start. Built: the
+  `migrate` service applies them, then loads the reference rows (`pnpm db:reference`),
+  and the app starts once it has finished.
 - Jobs are CLI entry points in the same image, started by the host's scheduler. The
   current repository does not show how `validate` is scheduled today.
 - Configuration stays in environment variables: Discord client id and secret, the two
@@ -1979,9 +2005,10 @@ Mocked up 2026-10-13 as `submit.html`, `submit-snippet.html`, `submissions.html`
 `resubmit.html`, with a "Playtest" button added to `experience.html`. This section is
 what the screens show and why. The model behind them, the statuses and what the
 database holds, is "Submission states" under "Data model". Built so far: both submit
-forms, with the game and "What are you sharing?" at the top of each. "Your
-submissions" and the form reopened to fix something are not; "Order of work" says
-what comes first.
+forms, with the game and "What are you sharing?" at the top of each; "Your
+submissions", 2026-10-16; and the form reopened to fix something, 2026-10-17 for
+experiences and 2026-10-18 for snippets, with the moderator's note at the top rather
+than at each field. "Order of work" says what is left.
 
 - **The game comes first, then what is being shared.** Agreed 2026-10-13: the game is
   the first question on submit, and what follows is what that game allows. Snippets
@@ -2111,13 +2138,13 @@ decision before its screen is built: add it, or take it off the screen.
 | Weekly showcase: one experience, a week number, "picked by the moderators" | Nowhere to store the pick | A `showcase_experience_id` and a date on `site_settings`; the `featured` flag stays separate |
 | "Loads in game. Checked 6 hours ago", and the nightly check on the admin overview | Per experience this is now `portal_checked_at`, built 2026-10-13. Still missing: a record of each run | A small `job_runs` table (job, started, finished, result) |
 | Admin overview: "Recent decisions" | Decisions are recorded on each row, not in one place, and a flag change records nothing | A `moderation_log` table (who, what, on which item, note, when) |
-| Reports: "Dismiss" | A report has no resolved state | `resolved_at` and `resolved_by` on `experience_reports` |
+| Reports: "Dismiss" | Nothing now: built 2026-10-18 | `resolved_at` and `resolved_by` on `experience_reports`, as suggested |
 | Admin overview: whether Discord webhooks are delivering | Nothing records a webhook's result | The same `job_runs` table, or a last-result column per webhook in settings |
 | Scripts list: comment counts | The site has no comments | Take it off. Discussion happens in Discord |
 | Scripts list and script page: download counts | No counter | A `downloads` count on snippets, or take it off |
 | Script page: "Used in" | No link between a snippet and an experience | A `snippet_experiences` join table, set by the snippet's author |
 | Scripts list: a second category tag per snippet, and a language | Snippets have one category and no tags or language | Take both off. The submit form, built 2026-10-13, asks for one category, and every snippet is TypeScript |
-| 2042 library: an Era filter | Tags have no game and no grouping, so the era tags cannot be told from the rest | Four of 2042's Portal tags are the eras. They become an "Era" tag group; see "Tags and filters per game" |
+| 2042 library: an Era filter | Nothing now: tag groups were built 2026-10-13 | Four of 2042's Portal tags are the eras. They became an "Era" tag group; see "Tags and filters per game" |
 | Updates and script page: "Follow" | No follows | Not built. The Atom feeds and "only projects I liked" cover it |
 | Header: a notification dot | No notifications | Not built. Revisit with "Account email" |
 | Events: "58 / 64 slots" | A capacity, but nothing that fills slots | Show the capacity and the interested count only |
@@ -2132,8 +2159,10 @@ Each stage ends with something that can be looked at. Revised 2026-10-13: the de
 was settled first, so the screens are built against seed data and the import follows.
 
 1. **Foundations.** Done: the app skeleton, schema, Discord login, the theme and the
-   site shell with every section's route. Not done: the deploy pipeline and a staging
-   host. CI has not run yet, because nothing has been pushed.
+   site shell with every section's route. Since 2026-10-16 (`e3c0d18`), a production
+   image and `compose.prod.yml` for a test server; see "Deployment and operations".
+   The repository is on GitHub, and CI runs on every push to `main`. Not done: an
+   image built and published by CI, and a staging host.
 2. **Seed data.** Done: `pnpm db:seed` fills the development database with the
    reference rows (categories, tag groups, tags, maps, SDK releases), 34 real
    Battlefield 6 experiences, and made-up content after the mockups that covers the
@@ -2164,7 +2193,8 @@ was settled first, so the screens are built against seed data and the import fol
      liked on tabs; a name anywhere links to its profile.
 
    Left out of these for now: an SDK season filter in the Library; the like, share,
-   report, edit, "interested" and follow actions, which are writes; account settings;
+   report, edit, "interested" and follow actions, which are writes (like, report and
+   edit have since come with step 5); account settings;
    one page per update post and per event; the weekly showcase and the "popular"
    search chips, which have no data behind them yet; the code's roll-in; Atom feeds;
    and the server-HTML tests, which need a way to render a route inside the test
@@ -2237,7 +2267,8 @@ was settled first, so the screens are built against seed data and the import fol
 4. **The import,** against the test legacy database, then the same screens on imported
    data. This is where migration problems surface. Put off on 2026-10-13 until after
    writes, by choice; the risk taken is that a migration problem is found later, with
-   more built on top of the schema.
+   more built on top of the schema. Not started as of 2026-11-09: there is no
+   `tools/import/`.
 5. **Writes:** like, report, submit with the code lookup and the export upload, edit,
    update posts, starting a playtest, and the Discord webhooks.
    Built so far, 2026-10-13: like and report, which set the pattern every write
@@ -2248,6 +2279,14 @@ was settled first, so the screens are built against seed data and the import fol
    the form; if gametools does not answer, the submission still goes in. An
    experience that is not published can be opened by its owner and the moderators,
    with a note naming its status.
+
+   Built since, to 2026-10-18: the Portal export and a template's files on the
+   submit form, and template offers; drafts of experiences; fixing and resubmitting,
+   changing something in review, and editing something live, for experiences and
+   snippets; liking snippets; and owners deleting their experiences and snippets.
+   Each is described under "Submission states" and "Project files". Not built: update
+   posts, starting a playtest, "interested" on events, snippet drafts, inviting
+   collaborators and the page where an account accepts, and every Discord webhook.
 
    Tightened after review, 2026-10-13:
 
@@ -2405,10 +2444,13 @@ was settled first, so the screens are built against seed data and the import fol
    the data on the server. The list of familiar picture hosts is a constant in
    `src/server/services/moderation.ts` until settings exist. Edits to live
    experiences and snippets are in the queue, decided at `/admin/edits/<id>`, since
-   2026-10-17 and 2026-10-18. Not yet: the queue's other kinds (update posts,
-   playtests, flag clears), the featured and
-   trending switches, the Discord announcement on approval, a count beside the
-   header's Review link, and a record of decisions.
+   2026-10-17 and 2026-10-18. Built 2026-10-18: the side menu, reports, the
+   experience and snippet lists with the featured and trending switches and
+   delisting, users and roles, and categories and tags; see "Admin" under "Feature
+   inventory". Not yet: the overview, the screens for update posts, playtests,
+   events and banners, and settings; the queue's other kinds (update posts,
+   playtests, flag clears); the Discord announcement on approval; a count beside the
+   header's Review link; and a record of decisions.
 
    Added by the submission states, 2026-10-13, and not built: a note against a
    particular field when requesting changes, stored in `review_field_notes`, started
@@ -2424,23 +2466,24 @@ was settled first, so the screens are built against seed data and the import fol
    second review screen and none of an experience's checks, which are about a code
    and pictures. Decided once, like an experience. This is not mocked up.
 7. **Edges:** public API, Atom feeds, sitemap, robots, redirects from the old
-   addresses, scheduled jobs.
+   addresses, scheduled jobs. Not started as of 2026-11-09, but for the redirects from
+   `/scripts/` to `/snippets/`.
 8. **Cutover:** rehearsals, then the switch.
 
 ## Open decisions
 
-Each has a recommendation. Rows marked agreed are settled; the rest are not.
+Each has a recommendation. Rows marked agreed or built are settled; the rest are not.
 
 | Decision | Recommendation |
 |---|---|
-| Better Auth for Discord login | Yes. It has a TanStack Start integration with a Solid variant. It requires an email per user; see "Data migration" |
+| Better Auth for Discord login | **Built,** in `src/server/auth/`, with the whole Discord round trip tested. It requires an email per user, so an account without one gets `<discord_id>@discord.invalid`; see "Account email" and "Data migration" |
 | How BF2042 and BF6 share the site | **Agreed 2026-10-12:** one site, BF6 home at `/`, a `game` column on experiences, and one Library with a tab per game. 2042 has no home page of its own. 2042 submissions stay open. **Agreed 2026-10-13:** each game's tab has its own path, `/library/` and `/library/bf2042/`, not a parameter, for search engines' sake. Existing `/experiences/<slug>/` links are kept |
 | Public API compatibility | **Agreed 2026-10-12:** keep the general shape, not full compatibility. The four main paths, the `meta`/`items` envelope, `limit`/`offset`, the field names and the `code`, `search`, `uid` and `username` filters stay. The list returns experiences only, the page size is capped, `liked_by` becomes a like count, the Discord object is trimmed to id, username, display name and avatar, and `hide_username` is honored. Wagtail-only parts (`type=`, the `find` endpoints, `meta.parent`) go. A list of who calls the API would still be useful |
 | Old experience ids | Keep them. The schema is built this way |
 | Revision history | Import only the live version and any pending one; archive the rest as a dump |
 | Experiences and snippets | Separate tables. The schema is built this way |
 | Categories | One table with a `kind` column, for experience main categories and the two script kinds. The schema is built this way |
-| Owner delete | Implement it as a soft delete; the button exists today but does nothing. The schema is built this way |
+| Owner delete | Implement it as a soft delete; the button exists today but does nothing. **Built** as a soft delete, for experiences 2026-10-17 and snippets 2026-10-18 |
 | Home page content | One markdown block in site settings |
 | `allow_editing` | Keep the column, hide the checkbox until it means something |
 | Gametools data on the experience page | Fetch on the server with a short cache and a timeout, so the page renders complete |
@@ -2468,7 +2511,7 @@ Each has a recommendation. Rows marked agreed are settled; the rest are not.
 | What a creator sees of a review | **Agreed 2026-10-13:** the notes, each at the field it is about, and never which moderator wrote them |
 | The creator's own list | **Agreed 2026-10-13:** one flat list at `/submissions/`, most recently changed first, with Status, Request and Review as separate columns, one line of what last happened, and one "Edit" button per row |
 | Playtesting something live | **Agreed 2026-10-13:** never on the live listing. "Playtest" on its page makes a draft copy, which is tested and then discarded. Open: how the copy's changes reach the live page, whether the copy needs its own code, and what discarding keeps |
-| Who can delist | Open. A moderator can, and Portal losing the code does. Whether an owner can delist their own and list it again is drawn in the mockup and not decided |
+| Who can delist | Open. A moderator can, built 2026-10-18 with "List again", and Portal losing the code does. Whether an owner can delist their own and list it again is drawn in the mockup and not decided |
 | Withdrawing from review | Open. Whether an owner can pull something back from review to a draft |
 | Flagging experiences no longer published | Built 2026-10-13 as `portal_state` on experiences, separate from the `broken` flag people set. Proposed, not yet agreed: the page stays up with a banner, listings hide it by default, a template with files stays listed, and nothing is removed automatically |
 | Checking projects against an SDK release | Out of scope for now, noted 2026-10-13. For templates and snippets, where the site has the files: three separate checks, for the script, the blocks and the spatial objects, each against what a release offers. See the end of "SDK versions" |
@@ -2481,7 +2524,7 @@ Each has a recommendation. Rows marked agreed are settled; the rest are not.
 | Artwork | Open. The mockups use crops of EA artwork as placeholders. The old site runs under Electronic Arts' Fansite Agreement, carries its disclaimer and links EA's map artwork directly; the rewrite's disclaimer now names both games. The agreement's own text was not found online, so what it permits is still to be checked against the copy the project holds |
 | EA's content policy | Read 2026-10-13 (`help.ea.com/en/articles/security-and-rules/ea-content-policy/`). Three points touch the site and need a look by whoever holds the Fansite Agreement, which may allow more than the public policy does. It says not to put a fan site "behind paywalls like Patreon", while passive banner ads are allowed; the site links a Patreon for support but puts nothing behind it. It says not to use EA's logos or game art in a way that implies endorsement, which bears on the hero image. It says not to put EA's trademarks in a domain name |
 | What the mockups show beyond the schema | See the table under "Visual direction". The suggestions there are not agreed |
-| Postgres version | Move to a current major during the migration, since the data is reloaded anyway. Development runs 18 |
+| Postgres version | Move to a current major during the migration, since the data is reloaded anyway. Development, CI and `compose.prod.yml` run 18 |
 
 ## What needs production access to answer
 
