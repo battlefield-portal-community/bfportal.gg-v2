@@ -148,6 +148,8 @@ export function ProjectFilesInput(props: {
   readUrl: string
   /** The names of files being read now, if any. */
   reading: string | null
+  /** Whether the form is reading files or being sent: nothing else starts. */
+  busy: boolean
   onChoose: (input: HTMLInputElement, slot: FileSlot) => void
   /**
    * What it was submitted with before, for one sent back. These stay unless
@@ -242,7 +244,7 @@ export function ProjectFilesInput(props: {
                 name="exportFile"
                 label="Upload export"
                 accept=".json,application/json"
-                disabled={props.reading !== null}
+                disabled={props.busy}
                 onChoose={props.onChoose}
               />
             </div>
@@ -259,7 +261,7 @@ export function ProjectFilesInput(props: {
                   name="exportFile"
                   label="Replace"
                   accept=".json,application/json"
-                  disabled={props.reading !== null}
+                  disabled={props.busy}
                   onChoose={props.onChoose}
                 />
               </HeldRow>
@@ -299,7 +301,7 @@ export function ProjectFilesInput(props: {
             accept={ADDED_FILE_TYPES.join(',')}
             multiple
             icon="plus"
-            disabled={props.reading !== null}
+            disabled={props.busy}
             onChoose={props.onChoose}
           />
           <span class="ml-auto font-mono text-xs text-fg-3">

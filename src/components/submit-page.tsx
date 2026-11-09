@@ -1,5 +1,13 @@
 import { useNavigate, useRouter } from '@tanstack/solid-router'
-import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js'
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  on,
+  onCleanup,
+  Show,
+} from 'solid-js'
 
 import type { Library } from '../functions/library'
 import type { SubmitPageData } from '../functions/submit'
@@ -426,6 +434,21 @@ export function SubmitPage(props: { data: SubmitPageData }) {
 
   const [reading, setReading] = createSignal<string | null>(null)
   /**
+   * Whether files are being read or the form is being sent. Either reads
+   * the form as it is, so nothing else starts until it is done: a submission
+   * sent while a file was still on its way went without it.
+   */
+  const busy = () => reading() !== null || sending() !== null
+  /** Which form this is: one of the owner's, or a new one for its game. */
+  const formFor = () => data().editing?.slug ?? `new:${data().game}`
+  // The page is kept when it goes to another form, so an answer that comes
+  // after that, or after the page is closed, is about a form no longer here.
+  let closed = false
+  onCleanup(() => {
+    closed = true
+  })
+
+  /**
    * Reads files chosen on the form and sends them with it. The form comes
    * back as a draft holding them, filled in from an export, and the page
    * goes to it.
@@ -434,7 +457,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
     const form = input.form
     const chosen = [...(input.files ?? [])]
     input.value = ''
-    if (!form || chosen.length === 0 || reading()) return
+    if (!form || chosen.length === 0 || busy()) return
     // Told here rather than after sending megabytes to be told the same.
     const limit = slot === 'exportFile' ? MAX_EXPORT_BYTES : MAX_FILE_BYTES
     const tooLarge = chosen.find((file) => file.size > limit)
@@ -445,6 +468,14 @@ export function SubmitPage(props: { data: SubmitPageData }) {
       return
     }
     setReading(chosen.map((file) => file.name).join(', '))
+    const startedFor = formFor()
+    /** Whether the page has left the form the files were chosen on. */
+    const left = () => {
+      if (closed) return true
+      if (formFor() === startedFor) return false
+      setReading(null)
+      return true
+    }
     let result: Awaited<ReturnType<typeof readProjectFiles>>
     try {
       const files = await Promise.all(
@@ -457,6 +488,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
         data: { ...formFields(new FormData(form)), [slot]: files },
       })
     } catch {
+      if (left()) return
       // No answer came back, which does not say it never arrived.
       setErrors({
         [slot]:
@@ -465,6 +497,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
       setReading(null)
       return
     }
+    if (left()) return
     if (result.ok) {
       // The form is what the draft says now, the teams included.
       setTyped(undefined)
@@ -542,11 +575,11 @@ export function SubmitPage(props: { data: SubmitPageData }) {
   const submit = async (event: SubmitEvent) => {
     event.preventDefault()
     const form = event.currentTarget as HTMLFormElement
+    if (busy()) return
     if (event.submitter === fetchButton) {
       fetchDetails(form)
       return
     }
-    if (sending()) return
     if (event.submitter === saveButton) {
       await save(form)
       return
@@ -703,6 +736,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
                         formaction={startFromCode.url}
                         formnovalidate
                         class={`${buttonGhost} h-[42px]`}
+                        disabled={busy()}
                       >
                         <Icon name="search" />
                         Fetch details
@@ -751,6 +785,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
                       errors={errors()}
                       readUrl={readProjectFiles.url}
                       reading={reading()}
+                      busy={busy()}
                       onChoose={readFiles}
                       submitted={data().editing?.submittedFiles}
                     />
@@ -1038,7 +1073,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
                   <button
                     type="submit"
                     class={`${buttonAccent} h-11 px-6`}
-                    disabled={sending() !== null}
+                    disabled={busy()}
                   >
                     {sending() === 'submit'
                       ? 'Submitting'
@@ -1057,7 +1092,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
                     formaction={saveDraft.url}
                     formnovalidate
                     class={`${buttonGhost} h-11 px-6`}
-                    disabled={sending() !== null}
+                    disabled={busy()}
                   >
                     {sending() === 'save' ? 'Saving' : 'Save'}
                   </button>
@@ -1069,7 +1104,7 @@ export function SubmitPage(props: { data: SubmitPageData }) {
                       formaction={deleteDraft.url}
                       formnovalidate
                       class={`${buttonDanger} h-11 px-5`}
-                      disabled={sending() !== null}
+                      disabled={busy()}
                     >
                       Delete
                     </button>
