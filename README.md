@@ -1,8 +1,19 @@
 # bfportal.gg prototype
 
 A TypeScript rewrite of [bfportal.gg](https://bfportal.gg), built with TanStack Start,
-SolidJS and Postgres. The approach, data model and open decisions are in
-[PLAN.md](PLAN.md).
+SolidJS and Postgres.
+
+bfportal.gg is where the Battlefield Portal community shares what it makes: custom
+experiences for Battlefield 6 and Battlefield 2042, each with its Portal share code,
+templates others can build on, snippets of script, update posts, and playtests. The
+rewrite replaces the current Django site with the same features and a few new ones.
+
+| To find | Read |
+|---|---|
+| How to run it | This file |
+| How the site works, and what was decided | [PLAN.md](PLAN.md) |
+| What is left to do | The [issues](https://github.com/battlefield-portal-community/bfportal.gg-v2/issues) |
+| How to write code here | [AGENTS.md](AGENTS.md) |
 
 ## Requirements
 
@@ -17,6 +28,7 @@ pnpm install
 cp .env.example .env.local   # then fill in BETTER_AUTH_SECRET
 pnpm db:up                   # Postgres 18 on localhost:5433
 pnpm db:migrate
+pnpm db:seed                 # sample content, so the pages are not empty
 pnpm dev
 ```
 
@@ -27,6 +39,34 @@ Signing in needs a Discord OAuth application. Put its client id and secret in
 `.env.local` and add `http://localhost:3000/api/auth/callback/discord` as a redirect
 URI. Without them the site still runs in development and `/login` answers that Discord
 login is not configured.
+
+## Contributing
+
+1. **Find a card.** Each piece of work is an
+   [issue](https://github.com/battlefield-portal-community/bfportal.gg-v2/issues). Filter
+   by label for an area: `public` (pages anyone sees), `writes` (forms and what they
+   change), `admin`, `accounts`, `import`, `edges` (API, feeds, jobs), `ops`, `tests`,
+   `design`. New here? Start with
+   [`good first issue`](https://github.com/battlefield-portal-community/bfportal.gg-v2/labels/good%20first%20issue).
+   `next` marks what matters most now.
+2. **Check it is not blocked.** Cards labeled `decision` are questions still to
+   settle, and each says which cards it blocks. Leave a blocked card until its
+   decision is closed.
+3. **Claim it.** Comment on the issue before you start, so two people do not build
+   the same thing. A card someone has claimed and not touched for two weeks is free
+   again.
+4. **Read before you build.** Each card names the part of `PLAN.md` it comes from.
+   Read that, and `AGENTS.md`, which has the project's words (a "template", a
+   "snippet", a "playtest") and its rules for components, writes and tests.
+5. **Open a pull request** that says `Closes #<number>`, with the four checks passing:
+   `pnpm lint:fix`, `pnpm typecheck`, `pnpm test` and `pnpm build`. For a page,
+   include screenshots at a phone width and a desktop one.
+
+Questions go to the community [Discord](https://discord.bfportal.gg/). If you find
+more work while building, open an issue for it rather than adding it to the plan.
+
+The mockups the pages are built from are not in this repository, since their artwork
+is not ours to publish. Ask on Discord for a copy.
 
 ## Scripts
 
