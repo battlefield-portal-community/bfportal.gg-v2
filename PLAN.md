@@ -733,7 +733,7 @@ The rest of each tab's filter row, which is not tags:
 
 | Filter | Battlefield 6 | Battlefield 2042 |
 |---|---|---|
-| Category tabs | The Battlefield 6 categories (see "Open decisions") | Multiplayer, Co-op, Solo, Templates |
+| Category tabs | The Battlefield 6 categories, still open (#57) | Multiplayer, Co-op, Solo, Templates |
 | Built with | Script, blocks, custom map, verified mode | No. 2042 has nothing to export; "Custom logic" is one of its rules tags |
 | Templates | A switch | A category tab |
 | Players | Yes | Yes |
@@ -1781,7 +1781,7 @@ Faults in the current site that the rewrite should fix by design rather than cop
 | Cloudflare purge sends one malformed URL (missing comma) | `core/helper.py:158` | A list |
 | Validation marks an experience broken on any 404 or odd reply, and its "import tags" switch is ignored | `core/management/commands/validate.py:18` | Its own `portal_state`, changed only by a definite answer; honor the switch |
 | One "not available" flag for a report, the owner's mark and the job's finding, which only a moderator can clear | `core/models/experience.py` | The job's finding is separate and clears itself when the code returns |
-| Delete is a stub | `core/models/experience.py:273` | See "Open decisions" |
+| Delete is a stub | `core/models/experience.py:273` | A soft delete; see "Decisions" |
 | The users API ignores `hide_username` and lists who liked each experience | `core/serializers/users.py` | Decide what the public API exposes |
 
 ## Data migration
@@ -1997,7 +1997,7 @@ Look:
 - Motion is small: the code's roll-in on the experience page, and hover transitions.
   All of it is off for people who ask for reduced motion.
 - Hero and cover artwork in the mockups is placeholder. The site needs artwork it may
-  use; see "Open decisions".
+  use; open as #111.
 
 ### Submitting, and following a submission: the mockups
 
@@ -2221,9 +2221,11 @@ Decided in review or by using the pages, and not written down elsewhere in this 
   places filled on events; the tabs under an experience's gallery; and trending by
   week, month or all time.
 
-## Open decisions
+## Decisions
 
-Each has a recommendation. Rows marked agreed or built are settled; the rest are not.
+What was decided, and when. A question still open is a card labeled `decision` on the
+tracker, listed under #13; a row here that is settled only in part names the card for
+the rest. When a card is settled, its answer is written here and the card is closed.
 
 | Decision | Recommendation |
 |---|---|
@@ -2236,9 +2238,9 @@ Each has a recommendation. Rows marked agreed or built are settled; the rest are
 | Categories | One table with a `kind` column, for experience main categories and the two script kinds. The schema is built this way |
 | Owner delete | Implement it as a soft delete; the button exists today but does nothing. **Built** as a soft delete, for experiences 2026-10-17 and snippets 2026-10-18 |
 | Home page content | One markdown block in site settings |
-| `allow_editing` | Keep the column, hide the checkbox until it means something |
+| `allow_editing` | Keep the column, hide the checkbox until it means something. Open: what it means, #114 |
 | Gametools data on the experience page | Fetch on the server with a short cache and a timeout, so the page renders complete |
-| Account email | Optional for now: stored when Discord provides one, a placeholder otherwise, and not used for anything. The site may want to require a real email later, for example to tell a user about a moderation decision. That means deciding what happens to Discord accounts that have none, and to existing users who signed up without one |
+| Account email | Optional for now: stored when Discord provides one, a placeholder otherwise, and not used for anything. Open: whether to require a real one, #110 |
 | Moderating new kinds of content | **Agreed 2026-10-12:** the same pipeline as the old site. Update posts, playtests and uploaded files are all held for a moderator, like submissions and edits. The one exception is the SDK version. Loosen it later if the queue becomes the problem |
 | Who may post updates | The owner and collaborators |
 | Repository link | Accept `https` URLs on a short allow-list of hosts, starting with GitHub. Showing stars or the latest commit from GitHub's API can come later |
@@ -2249,41 +2251,33 @@ Each has a recommendation. Rows marked agreed or built are settled; the rest are
 | Sharing uploaded files | **Agreed 2026-10-12:** sharing files is what makes an experience a template, a tag the creator sets on creation. There is no separate "share" switch |
 | Code on a template | **Agreed 2026-10-12:** optional. A template may exist only as files, and tools and add-ons will not need a code either when they get pages. An experience that is not a template still needs one |
 | The Discord playtest bot | **Agreed 2026-10-12, for now:** the site replaces it. A playtest is a brief, posted on the site and announced in Discord by webhook; there are no sign-ups. Revisit if people miss starting one from inside Discord |
-| Where playtest feedback lives | **Agreed 2026-10-12:** in the playtest's Discord thread, linked from the site. Open: what creates the thread, a forum-channel webhook or a bot |
+| Where playtest feedback lives | **Agreed 2026-10-12:** in the playtest's Discord thread, linked from the site. Open: what creates the thread, #102 |
 | Who may start a playtest | The owner or a collaborator for an experience with a page; any logged-in user for something with no page yet, with a rate limit |
 | Playtests for unpublished work | Allowed, shown as "No page yet". A playtest never exposes an unpublished experience's page |
 | Tags | **Direction set 2026-10-13:** flexible, shaped by admins per game, and ready for a later title. Tag groups and tags are data; no game's filters are written in code. See "The tag system". **Agreed 2026-10-13,** and the schema is built this way |
 | How a new game is added | **Agreed 2026-10-13:** a registry entry in code and one new value in the database's `game` list, with categories and tags entered by an admin. Not a `games` table, because a new title needs code for its lookup and files either way |
 | Style as a tag group | **Agreed 2026-10-13.** Style is a tag group per game, not a second kind of category. The subcategory join table is gone |
-| SDK version on an experience | Built 2026-10-13 as one release per experience or script in an `sdk_versions` table. **Agreed later the same day:** it is not chosen. Battlefield 6 only runs the latest release, so the site records the current one at submit and the form does not ask. Open: whether an owner later confirms it still works on a newer release, and how the page shows one that has not been confirmed |
+| SDK version on an experience | Built 2026-10-13 as one release per experience or script in an `sdk_versions` table. **Agreed later the same day:** it is not chosen. Battlefield 6 only runs the latest release, so the site records the current one at submit and the form does not ask. Open: whether an owner confirms it on a newer release, #106 |
 | Game first | **Agreed 2026-10-13:** in any flow where the game matters, the game is the first question and what follows is what that game allows. On submit: the game, then what is being shared, then the form |
-| What a snippet is | **Agreed 2026-10-13:** a small, reusable piece of script, Battlefield 6 only, pasted in or uploaded as one `.ts` file by anyone signed in, and reviewed like an experience. Not a Portal export and not a whole experience. Open: the size limit, shown as 400 lines in the mockup |
+| What a snippet is | **Agreed 2026-10-13:** a small, reusable piece of script, Battlefield 6 only, pasted in or uploaded as one `.ts` file by anyone signed in, and reviewed like an experience. Not a Portal export and not a whole experience. Open: the size limit, #97 |
 | Submission states | **Agreed 2026-10-13,** and the schema is built this way: draft, in review, changes requested, live, delisted, removed. A moderator requests changes instead of rejecting, and the creator fixes it and submits it again; "removed" is the separate end for spam. See "Submission states" for what is still open there |
 | What a creator sees of a review | **Agreed 2026-10-13:** the notes, each at the field it is about, and never which moderator wrote them |
 | The creator's own list | **Agreed 2026-10-13:** one flat list at `/submissions/`, most recently changed first, with Status, Request and Review as separate columns, one line of what last happened, and one "Edit" button per row |
-| Playtesting something live | **Agreed 2026-10-13:** never on the live listing. "Playtest" on its page makes a draft copy, which is tested and then discarded. Open: how the copy's changes reach the live page, whether the copy needs its own code, and what discarding keeps |
-| Who can delist | Open. A moderator can, built 2026-10-18 with "List again", and Portal losing the code does. Whether an owner can delist their own and list it again is drawn in the mockup and not decided |
-| Withdrawing from review | Open. Whether an owner can pull something back from review to a draft |
-| Flagging experiences no longer published | Built 2026-10-13 as `portal_state` on experiences, separate from the `broken` flag people set. Proposed, not yet agreed: the page stays up with a banner, listings hide it by default, a template with files stays listed, and nothing is removed automatically |
+| Playtesting something live | **Agreed 2026-10-13:** never on the live listing. "Playtest" on its page makes a draft copy, which is tested and then discarded. Open: how the copy works, #101 |
+| Who can delist | A moderator can, built 2026-10-18 with "List again", and Portal losing the code does. Open: whether an owner can, #99 |
+| Flagging experiences no longer published | Built 2026-10-13 as `portal_state` on experiences, separate from the `broken` flag people set. Open: what it does to the page and to listings, #107 |
 | Checking projects against an SDK release | Out of scope for now, noted 2026-10-13. For templates and snippets, where the site has the files: three separate checks, for the script, the blocks and the spatial objects, each against what a release offers. See the end of "SDK versions" |
-| Creators and collaborators | **Asked for 2026-10-13,** and the schema is built this way: a creator is a name with no account or an account, both credited, and an account can be given edit access by the owner. **Agreed 2026-10-13:** edit access is always explicit and off by default. Proposed, not yet agreed: a newly added account must accept before it is shown; a collaborator cannot delete the experience or manage other creators; ownership changes hands only through an admin |
+| Creators and collaborators | **Asked for 2026-10-13,** and the schema is built this way: a creator is a name with no account or an account, both credited, and an account can be given edit access by the owner. **Agreed 2026-10-13:** edit access is always explicit and off by default. Open: accepting before being shown, what a collaborator may do, and ownership, #98 |
 | Old "additional creators" on import | **Agreed 2026-10-13:** they are imported as credited accounts without edit access. Edit access is opt-in, per person, by the owner |
 | Rendering | **Planned 2026-10-13:** server-rendered first load and client navigation for every public page, forms that work without script, and the admin drawn in the browser. See "Rendering". **Agreed 2026-10-13:** a path per game for the Library. Deferred: caching HTML at Cloudflare for requests with no session cookie |
 | Pictures in descriptions | **Agreed 2026-10-13:** allowed over HTTPS, as on the old site, in descriptions, update posts and playtest briefs. Nothing is blocked or proxied. A moderator is warned when what they are reviewing loads pictures from a host that is not on a short list of familiar ones |
-| Battlefield 6 categories | Open. The mockups use Multiplayer, Co-op and Solo as the main categories, with Style (Casual, Competitive, Showcase, Example) as a second label. Not confirmed: whether those three are right for Battlefield 6, and whether Style sits beside them or replaces them |
-| Who may create events and banners | Moderators and admins, in the admin. Not confirmed |
-| Artwork | Open. The mockups use crops of EA artwork as placeholders. The old site runs under Electronic Arts' Fansite Agreement, carries its disclaimer and links EA's map artwork directly; the rewrite's disclaimer now names both games. The agreement's own text was not found online, so what it permits is still to be checked against the copy the project holds |
-| EA's content policy | Read 2026-10-13 (`help.ea.com/en/articles/security-and-rules/ea-content-policy/`). Three points touch the site and need a look by whoever holds the Fansite Agreement, which may allow more than the public policy does. It says not to put a fan site "behind paywalls like Patreon", while passive banner ads are allowed; the site links a Patreon for support but puts nothing behind it. It says not to use EA's logos or game art in a way that implies endorsement, which bears on the hero image. It says not to put EA's trademarks in a domain name |
-| What the mockups show beyond the schema | See the table under "Visual direction". The suggestions there are not agreed |
+| The site's disclaimer | Names both games, under Electronic Arts' Fansite Agreement, as the old site's does. What the agreement allows for artwork is open, #111, and EA's content policy is #112 |
 | Postgres version | Move to a current major during the migration, since the data is reloaded anyway. Development, CI and `compose.prod.yml` run 18 |
+
+Open and not in a row above: Battlefield 6's categories (#57), withdrawing from review
+(#100), who creates events and banners (#108), and what the mockups show beyond the
+schema (#113).
 
 ## What needs production access to answer
 
-- The permissions of the "Moderators" group.
-- Whether any redirects exist.
-- How the two home pages are mounted (one site or two hostnames).
-- Row counts, users without Discord or email, duplicate emails, pending revisions, like mismatches.
-- Who consumes the public API.
-- Which tags exist and how many experiences use each, to see whether the 2022 import's
-  hand-written era, mode and size tags are in use beside Portal's.
-- How the validation job is scheduled.
+On the tracker as #96, a checklist, labeled `needs-prod`.
