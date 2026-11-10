@@ -9,7 +9,8 @@ rewriting bfportal.gg in TypeScript. It is not a task list. References such as
 
 A better, more stable version of the current site:
 
-- Feature complete with the current site, implemented more cleanly.
+- Feature complete with the current site, implemented more cleanly. This is what the
+  switch needs; the additions below follow it (agreed 2026-11-10).
 - Additions the current site does not have, all worked out in the mockups:
   - update posts on projects, with a site-wide feed, and a source repository link;
   - a gallery of pictures and YouTube videos on each experience;
@@ -2168,13 +2169,19 @@ closed, and the cards inside it are in order of priority.
 
 | Milestone | Covers |
 |---|---|
-| 1 Decisions | The questions that block work, and what only production can answer. Settle these first |
-| 2 Writes | Update posts, playtests, collaborators, health marks, the Discord posts, the smaller writes |
-| 3 Moderation and admin | The remaining screens and decisions, and the tests and mockups they need |
-| 4 Public pages and accounts | What is left of the public and account pages, their server-HTML tests, the design checks |
+| 1 Decisions | The questions that block parity work, and what only production can answer. Settle these first |
+| 2 Writes | The Discord approval and announcement posts, and owners marking their own experience bugged or broken |
+| 3 Moderation and admin | What the old site's Wagtail admin gives moderators: settings, the full edit, tags and categories, clearing flags; the tests that cover moderation |
+| 4 Public pages and accounts | What the old pages do that these do not yet: filters, featured and category pages, meta overrides, featured snippets; the server-HTML tests and the checks in a browser |
 | 5 Import | The old site's data in the new schema, and the checks. Put off until after writes, by choice: a migration problem is found later, with more built on the schema |
 | 6 Edges and operations | The API, feeds, sitemap, redirects, scheduled jobs; the image, a staging host, backups |
 | 7 Cutover | Rehearse the import, then switch |
+| 8 After cutover | The additions the old site does not have, built once the site has switched: update posts, playtests, events and banners, collaborators with edit access, snippet drafts, "Your submissions" extras, notes at fields, and the rest |
+
+Agreed 2026-11-10: the switch needs parity with the old site, not the additions.
+Milestones 1 to 7 hold only what parity needs; a card goes in 8 when the old site has
+nothing like it. What the old site does was read from its code, on its `production`
+branch and, for Battlefield 6 snippets, `main`.
 
 ### Rules settled while building
 
@@ -2277,6 +2284,7 @@ the rest. When a card is settled, its answer is written here and the card is clo
 | Pictures in descriptions | **Agreed 2026-10-13:** allowed over HTTPS, as on the old site, in descriptions, update posts and playtest briefs. Nothing is blocked or proxied. A moderator is warned when what they are reviewing loads pictures from a host that is not on a short list of familiar ones |
 | The site's disclaimer | Names both games, under Electronic Arts' Fansite Agreement, as the old site's does. What the agreement allows for artwork is open, #111, and EA's content policy is #112 |
 | Postgres version | Move to a current major during the migration, since the data is reloaded anyway. Development, CI and `compose.prod.yml` run 18 |
+| What the switch needs | **Agreed 2026-11-10:** parity with the old site. The additions under "Goal" follow after cutover; those already built stay. See "Order of work" |
 
 Open and not in a row above: Battlefield 6's categories (#57), withdrawing from review
 (#100), who creates events and banners (#108), and what the mockups show beyond the
