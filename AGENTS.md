@@ -8,8 +8,10 @@ place:
 - `PLAN.md`: how the site works and what was agreed. The data model, the feature
   list, the decisions and the rules settled while building. Not a task list.
 - The tracker, the repository's GitHub issues, which Kaneo mirrors both ways: what is
-  left. A card per piece of work under a parent per area, labeled by area; open
-  questions are cards labeled `decision` under #13, each saying what it blocks.
+  left. A card per piece of work under a parent per area, labeled by area, and in
+  the milestone for its stage; open questions are cards labeled `decision` under
+  #13, each saying what it blocks. Milestones exist only on GitHub: the sync leaves
+  them alone.
 - Git: what was done, and when.
 
 Read the part of the plan that covers what you are about to build, and its card.

@@ -34,7 +34,8 @@ labeled or closed here shows there too.
    | `tests` | Tests the suite is missing |
    | `design` | Mockups to draw, and pages to check against them |
 
-   New here? Start with
+   The [milestones](https://github.com/battlefield-portal-community/bfportal.gg-v2/milestones)
+   group the same cards by stage, in the order to work in. New here? Start with
    [`good first issue`](https://github.com/battlefield-portal-community/bfportal.gg-v2/labels/good%20first%20issue).
    `next` marks what matters most now. A card with sub-cards is a whole feature; take
    one sub-card at a time.

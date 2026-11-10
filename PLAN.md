@@ -2155,22 +2155,26 @@ decision before its screen is built: add it, or take it off the screen.
 
 ## Order of work
 
-Eight steps, each ending with something that can be looked at. Revised 2026-10-13:
-the design was settled first, so the screens are built against seed data and the
-import follows. What is left in a step is on the tracker (the repository's GitHub
-issues, mirrored in Kaneo), under the card named here. What was done, and when, is in
-git.
+Each stage ends with something that can be looked at. Revised 2026-10-13: the design
+was settled first, so the screens are built against seed data and the import
+follows. The first three stages are built: the foundations (the app, schema, Discord
+login, theme, the shell, the production image and CI's checks), the seed data, and
+the read-only site.
 
-| Step | Where it stands, 2026-11-10 | Cards |
-|---|---|---|
-| 1 Foundations | Built: the app, schema, Discord login, theme, the shell with every section's route, the production image and `compose.prod.yml`, and CI's four checks. Left: CI publishing the image, a staging host | #9 |
-| 2 Seed data | Built: reference rows, 34 real Battlefield 6 experiences, and made-up content for the awkward states | #84 |
-| 3 Read-only site | Built: every public page against the seed data | #10 |
-| 4 Import | Not started; there is no `tools/import/`. Put off until after writes, by choice: a migration problem is found later, with more built on the schema | #7 |
-| 5 Writes | Built: like, report, submit with the lookup and the export, drafts, fixing and resubmitting, editing what is in review or live, template offers, delete. Left: update posts, playtests, collaborators, Discord | #3 #4 #5 #6 #11 #12 |
-| 6 Moderation and admin | Built: the queue, both review screens, edits, reports, the experience and snippet lists, users and roles, categories and tags. Left: the other screens and decisions | #1 #2 |
-| 7 Edges | Not started, but for the `/scripts/` redirects | #8 |
-| 8 Cutover | Not started | #44 |
+What is left is in seven
+[milestones](https://github.com/battlefield-portal-community/bfportal.gg-v2/milestones)
+on the tracker, in the order to work in. Each shows how many of its cards are
+closed, and the cards inside it are in order of priority.
+
+| Milestone | Covers |
+|---|---|
+| 1 Decisions | The questions that block work, and what only production can answer. Settle these first |
+| 2 Writes | Update posts, playtests, collaborators, health marks, the Discord posts, the smaller writes |
+| 3 Moderation and admin | The remaining screens and decisions, and the tests and mockups they need |
+| 4 Public pages and accounts | What is left of the public and account pages, their server-HTML tests, the design checks |
+| 5 Import | The old site's data in the new schema, and the checks. Put off until after writes, by choice: a migration problem is found later, with more built on the schema |
+| 6 Edges and operations | The API, feeds, sitemap, redirects, scheduled jobs; the image, a staging host, backups |
+| 7 Cutover | Rehearse the import, then switch |
 
 ### Rules settled while building
 
