@@ -4,6 +4,7 @@ For anyone, human or agent, changing this code. Each kind of thing is written in
 place:
 
 - `README.md`: setup.
+- `CONTRIBUTING.md`: how to find a card, claim it and send it.
 - `PLAN.md`: how the site works and what was agreed. The data model, the feature
   list, the decisions and the rules settled while building. Not a task list.
 - The tracker, the repository's GitHub issues, which Kaneo mirrors both ways: what is
