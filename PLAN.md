@@ -2008,7 +2008,7 @@ database holds, is "Submission states" under "Data model". Built so far: both su
 forms, with the game and "What are you sharing?" at the top of each; "Your
 submissions", 2026-10-16; and the form reopened to fix something, 2026-10-17 for
 experiences and 2026-10-18 for snippets, with the moderator's note at the top rather
-than at each field. "Order of work" says what is left.
+than at each field. What is left is on the tracker.
 
 - **The game comes first, then what is being shared.** Agreed 2026-10-13: the game is
   the first question on submit, and what follows is what that game allows. Snippets
@@ -2155,320 +2155,71 @@ decision before its screen is built: add it, or take it off the screen.
 
 ## Order of work
 
-Each stage ends with something that can be looked at. Revised 2026-10-13: the design
-was settled first, so the screens are built against seed data and the import follows.
+Eight steps, each ending with something that can be looked at. Revised 2026-10-13:
+the design was settled first, so the screens are built against seed data and the
+import follows. What is left in a step is on the tracker (the repository's GitHub
+issues, mirrored in Kaneo), under the card named here. What was done, and when, is in
+git.
 
-1. **Foundations.** Done: the app skeleton, schema, Discord login, the theme and the
-   site shell with every section's route. Since 2026-10-16 (`e3c0d18`), a production
-   image and `compose.prod.yml` for a test server; see "Deployment and operations".
-   The repository is on GitHub, and CI runs on every push to `main`. Not done: an
-   image built and published by CI, and a staging host.
-2. **Seed data.** Done: `pnpm db:seed` fills the development database with the
-   reference rows (categories, tag groups, tags, maps, SDK releases), 34 real
-   Battlefield 6 experiences, and made-up content after the mockups that covers the
-   awkward states: pending, rejected, deleted, flagged, no longer published, a
-   template with no code, an unaccepted invitation. Still to add when their pages are
-   built: the four Battlefield 6 tag names that were guessed, and real 2042
-   experiences once the import exists.
-3. **Read-only site:** the home page, library, experience page, scripts, updates,
-   events, playtests and profiles, built from the mockups against the seed data. Each page arrives
-   with its head tags, its server-HTML test and working links without script; see
-   "Rendering".
-   Built, 2026-10-13, each with a service and its tests, a server function, a route
-   loader and its head tags:
-   - the games registry;
-   - the Library, both tabs, with search kept in the address;
-   - the experience page: gallery, description, updates, map rotation, a template's
-     files with a download, more from the creator, and a side column with the code,
-     both Portal links, the open playtest, facts, tags and credits;
-   - the home page: banner, search, counts, trending experiences, recent updates, open
-     playtests, trending scripts, upcoming events and a band for each other game;
-   - the updates feed, filtered by kind of project and by game;
-   - events, upcoming and past;
-   - playtests: the open ones, how it works, recently closed, and a page per playtest
-     with its brief, code and Discord thread;
-   - scripts: the list by category, and a script's page with its code, description
-     and updates;
-   - profiles, with experiences (owned, and credited once accepted), scripts and
-     liked on tabs; a name anywhere links to its profile.
+| Step | Where it stands, 2026-11-10 | Cards |
+|---|---|---|
+| 1 Foundations | Built: the app, schema, Discord login, theme, the shell with every section's route, the production image and `compose.prod.yml`, and CI's four checks. Left: CI publishing the image, a staging host | #9 |
+| 2 Seed data | Built: reference rows, 34 real Battlefield 6 experiences, and made-up content for the awkward states | #84 |
+| 3 Read-only site | Built: every public page against the seed data | #10 |
+| 4 Import | Not started; there is no `tools/import/`. Put off until after writes, by choice: a migration problem is found later, with more built on the schema | #7 |
+| 5 Writes | Built: like, report, submit with the lookup and the export, drafts, fixing and resubmitting, editing what is in review or live, template offers, delete. Left: update posts, playtests, collaborators, Discord | #3 #4 #5 #6 #11 #12 |
+| 6 Moderation and admin | Built: the queue, both review screens, edits, reports, the experience and snippet lists, users and roles, categories and tags. Left: the other screens and decisions | #1 #2 |
+| 7 Edges | Not started, but for the `/scripts/` redirects | #8 |
+| 8 Cutover | Not started | #44 |
 
-   Left out of these for now: an SDK season filter in the Library; the like, share,
-   report, edit, "interested" and follow actions, which are writes (like, report and
-   edit have since come with step 5); account settings;
-   one page per update post and per event; the weekly showcase and the "popular"
-   search chips, which have no data behind them yet; the code's roll-in; Atom feeds;
-   and the server-HTML tests, which need a way to render a route inside the test
-   runner. The page heads are plain bands with no artwork until the site has a
-   picture it may use. "Show ones that no longer load" is off by default for both
-   games, as the plan says and unlike the Battlefield 6 mockup. Profiles carry
-   `noindex`; the plan has not said whether they should be indexed.
+### Rules settled while building
 
-   Player counts are the largest lobby in the rotation, each lobby being the sum of
-   its teams' sizes as gametools reports them. That can count bot slots as players,
-   and a team with no stated size counts as none; the export's `humanCapacity` is the
-   better source when there is one.
+Decided in review or by using the pages, and not written down elsewhere in this plan.
 
-   Reviewed 2026-10-13, and changed as a result:
-   - logging out goes through Better Auth's HTTP handler, so its check of where a
-     request came from applies; the check is also kept on in tests, where Better
-     Auth turns it off by itself;
-   - the tests refuse to run against a database that is not on this machine;
-   - Markdown is rendered and sanitized in one place, `src/server/markdown.ts`, which
-     is the only writer of the HTML columns. It allows HTTPS pictures and marks every
-     link `nofollow noopener ugc`. This had to exist before the first form or the
-     import could write a description;
-   - a template stays listed when its code goes, as long as its files can be taken;
-   - dates do switch to the visitor's time zone; "show more" stops where the address
-     stops; searching by creator finds credits; a profile's lists page.
-
-   Still to check when there is production-sized data, at the import rehearsal: the
-   trending sort counts likes per row before it limits, and will be the first query
-   to slow down; the home page runs about fifteen queries and an experience page ten,
-   uncached. File downloads are not cached either. The service tests assert exact
-   counts against the seed, which will need loosening as the seed grows, and there
-   are still no browser tests.
-
-   Checked against the mockups, 2026-10-13: each public page rendered beside its
-   mockup at 1440px, and the reworked ones at 390px.
-
-   - **Found broken.** Home, a script's page, the playtests list, a playtest and
-     events all failed in the browser with "Something went wrong", though the server
-     sent them whole. `PageHead` and `Section` read a prop holding markup twice, so
-     the server and the browser disagreed about it. Fixed, with a test; the error
-     page now writes what failed to the console.
-   - **Brought in line.** Section headings (size, the accent segment on their rule,
-     the accented word on the home page) and the links beside them. The script page:
-     trail, author and date under the title, numbered lines, a copy button in the
-     side column. Playtests: a list of rows with a side column for how it works,
-     getting pinged and what closed recently. Events: a day block on each card, four
-     across. Playtests and events share tabs. The updates feed: rows with the
-     project's picture and a side column. The profile: badges, a line of counts, and
-     tabs. Cards show one topic tag when they also say what they are built with.
-     The 2042 band at the foot of the home page: a band the width of the window,
-     flush against the footer, with its eyebrow, large heading and ghost button, not
-     a box in the column. The 2042 library's head: how many still load, as a bar and
-     a count, with when the codes were last checked, which "Look" above has always
-     called for; which head a game's library gets is `library.leadsWith` in the
-     registry. The footer lists the 2042 archive.
-   - **Found on the way.** On the 2042 library both game tabs were marked current:
-     the router calls a link current when the address starts with it, and
-     "/library" starts "/library/bf2042". The first of these was missed on the
-     first pass because only the top of each comparison was looked at. Compare the
-     whole page, to the footer.
-   - **Still different, because the site lacks the data or the feature.** The hero
-     artwork, the weekly showcase and the popular searches on home; pictures,
-     places filled and "interested" on events; comments, downloads and a second tag
-     on scripts; the feed's grouping by day and "most active this month"; a
-     playtest row's picture, author and what it is built with; the tabs under an
-     experience's gallery; trending by week, month or all time.
-   - **Not checked.** The submit form and the moderators' screens, which need a
-     signed-in browser; the 2042 library and a single playtest in detail; widths
-     between 390px and 1440px, and above.
-4. **The import,** against the test legacy database, then the same screens on imported
-   data. This is where migration problems surface. Put off on 2026-10-13 until after
-   writes, by choice; the risk taken is that a migration problem is found later, with
-   more built on top of the schema. Not started as of 2026-11-09: there is no
-   `tools/import/`.
-5. **Writes:** like, report, submit with the code lookup and the export upload, edit,
-   update posts, starting a playtest, and the Discord webhooks.
-   Built so far, 2026-10-13: like and report, which set the pattern every write
-   follows (see "Writes" in `AGENTS.md`); the gametools lookup; and submit. The
-   submit page takes the game and a code or Portal link in its address, shows what
-   Portal says, and starts the form from it. On submit the code is looked up again,
-   so the rotation, Portal's tags and the paid-game flag come from Portal and not from
-   the form; if gametools does not answer, the submission still goes in. An
-   experience that is not published can be opened by its owner and the moderators,
-   with a note naming its status.
-
-   Built since, to 2026-10-18: the Portal export and a template's files on the
-   submit form, and template offers; drafts of experiences; fixing and resubmitting,
-   changing something in review, and editing something live, for experiences and
-   snippets; liking snippets; and owners deleting their experiences and snippets.
-   Each is described under "Submission states" and "Project files". Not built: update
-   posts, starting a playtest, "interested" on events, snippet drafts, inviting
-   collaborators and the page where an account accepts, and every Discord webhook.
-
-   Tightened after review, 2026-10-13:
-
-   - **Limits.** An account that is not staff may have 5 submissions waiting and send
-     10 in a day; both are counted in the database. A day's count includes what was
-     sent and then deleted, and leaves out drafts, which were sent to nobody. Lookups from the submit page are
-     held to 20 a minute per account, in memory, and a lookup's answer is reused for a
-     minute. gametools is someone else's service and the queue is a moderator's time.
-   - **The address is found by trying.** Two people sending the same title at once
-     both read the address as free. The unique constraint decides, and the one that
-     loses takes the next number.
-   - **A link is enough.** Given a Portal link and no code, the code comes from the
-     lookup. If Portal does not say and it is not a template, the form asks for it.
-   - **A group that takes one tag takes one,** checked in the service and drawn as a
-     list to pick from.
-   - **A refused form is not lost without script.** The fields and what was wrong are
-     kept in `submission_drafts` and the visitor is sent to `/submit?draft=true`,
-     which draws the form filled in with each problem beside its field.
-   - **A write that got no answer is not called a failure.** The page says it may or
-     may not have gone through. Once the server has said yes, a failure to move to
-     the next page is not shown as an error either.
-   - **A server function that takes a form never throws on bad input.** It answers
-     with a refusal like any other.
-
-   Fixed after a second review, 2026-10-14:
-
-   - **The limits hold when two are sent at once.** The count and the write are one
-     transaction, and an account's submissions of either kind take a lock on the
-     account first, so the second waits and then counts the first. The count is
-     also made before Portal is looked up, so one over the limit is told without a
-     lookup. Before, an experience and a snippet sent together into the last place
-     both went in.
-   - **A refused form keeps every field that passed.** A kept form holds up to
-     100,000 characters, more than any form that passes its checks: a snippet may
-     have 60,000 characters of script (`MAX_SNIPPET_CHARS`, its 400 lines at 150
-     each) and 10,000 of description. Over that, what was refused goes first.
-     Before, a long snippet refused for its title lost its script.
-   - **What is submitted is what is in the boxes.** The code and link are fields of
-     the form that is submitted, not hidden copies of what was last fetched. "Fetch
-     details" is a button of that form: with no script it posts to `startFromCode`,
-     which goes to the page for the code; with a script the page goes there and
-     keeps what is typed. Enter in a field submits, and in the code or link fetches.
-   - **A file posted with the snippet form is the snippet,** over whatever the box
-     holds, and one too large to be a snippet is refused rather than ignored. With
-     a script the file is read into the box, and the form cannot be sent until it
-     is.
-   - **A moderator's refused decision comes back with its note,** on the page it was
-     made on, with no script as with one. Both kinds of review use one form,
-     `DecisionForm`.
-   - **A report is remembered for the experience it was sent about,** not for the
-     menu, which the router keeps from one experience to the next.
-   - Addresses are built from titles with accents removed, so "Über" is "uber". A
-     video in the gallery must be on YouTube, since that is the player it embeds;
-     a Twitch or Vimeo link is refused rather than taken for a picture.
-
-   Not in submit yet: inviting accounts as collaborators, which is done from the
-   page after approval; checking that a cover address is really a picture. That
-   check is the browser's, never the server's: the server does not fetch an
-   address a user gave (see AGENTS.md), and the form's preview already shows a
-   cover that does not load. The export and a template's files were added
-   2026-10-16; see "Project files".
-
-   Rebuilt to its mockup, 2026-10-13: the head says "Submit"; the form is in the
-   mockup's sections, each under a display-face legend (which game, start from your
-   code, how it is listed, what it is, setup, media and links); the game is a pair
-   of cards; categories, "built with" and tags are boxes that fill in when chosen;
-   the code has its "Fetch details" button beside it; and a side column holds "How
-   it will look", a card that follows the form as it is typed, and "Before you
-   submit". Still in the mockup and not on the page, because they are not built:
-   the "Your submissions" panel, the Markdown editor's preview tab, and tags typed
-   in freely.
-
-   Added 2026-10-13: "What are you sharing?" after the game, on both forms. With a
-   game that has no snippets the snippet choice stays in view with the registry's
-   reason and is not a link. The 2042 form is the short one of its mockup: it asks
-   for Style and Topic only, since Rules and Era are Portal's own tags and their
-   groups are no longer creator-selectable. It has no "Offer it as a template" and
-   no "Larger files": both belong to a game whose Portal has an export, which is
-   `hasExport` in the games registry. A 2042 template is one put in its "Templates"
-   category (`categories.marks_template`), and always needs its code or link. The
-   service applies the same two rules whatever the form sent. Still on the 2042
-   page and not in its mockup: "It can be copied in the Portal editor". In the
-   mockup and not on the page: Portal's tags shown read-only once a code is fetched.
-
-   **Choosing a game goes to that game's form.** Fixed 2026-10-13. The game cards
-   were radio buttons inside the "Fetch details" form, so choosing Battlefield 2042
-   changed nothing until that button was pressed: the page stayed orange, still
-   offered a snippet and kept Battlefield 6's fields. Each card is now a link to its
-   own address (`/submit`, `/submit?game=bf2042`, `/submit/snippet`), as "What are
-   you sharing?" already was, in `SubmitStart`. With script the router changes the
-   page in place and what was typed stays; without, it is a page load. Three things
-   that follow from changing in place, each found by using the page:
-
-   - An input is written to again whenever what it starts from is read again, so
-     what the fields start from (the kept form, what Portal said) is remembered by
-     what it says, not by which load it came from.
-   - The router keeps rows that are the same in both loads, so a category only one
-     game has can go while it is the one chosen. The chosen category is worked out
-     from what is offered now.
-   - The card beside the form reads the form again after the change.
-
-   Changed with the submission states, 2026-10-13: migration 0023 (the six statuses,
-   `changes_requested` in place of `rejected`, notes by field, the review columns on
-   snippets, `copied_from_id`); the experience page names any status to its owner;
-   the SDK release is set at submit and the form no longer asks for it.
-
-   What the mockups of 2026-10-13 add to this step, in the order to build it. Each
-   is a write with its service, its refusal tests and its screen:
-
-   1. **The edit page,** for the owner of an experience. It is what every row of
-      "Your submissions" opens, so the rest hangs from it. For something published
-      it makes a revision; for anything else it changes the row. It needs mocking up
-      first: only the submit form stands in for it. Built for drafts 2026-10-16, as
-      the submit form at `/experiences/<slug>/edit`; for something sent back, in
-      review or live 2026-10-17; and for snippets, at `/snippets/<slug>/edit`, on
-      2026-10-18. See "Submission states". Still not mocked up.
-   2. **Drafts.** Save without submitting, as `draft`; submit a draft. The submit
-      form gets a second button. Built for experiences 2026-10-16.
-   3. **Fix and resubmit.** The edit page for something with changes requested shows
-      the notes at their fields and sends it back to `pending`. The same for an edit
-      that was sent back, from its revision. Built for an experience and an edit to
-      one 2026-10-17, and for a snippet and an edit to one 2026-10-18, with the note
-      at the top rather than at its fields.
-   4. **"Your submissions"** at `/submissions/`: the list, its three columns and the
-      one button. Linked from the profile, the submit forms and the header menu.
-      Built 2026-10-16, linked from the header menu, the experience form and, when
-      it edits one, the snippet form; not yet from the profile or a new snippet's
-      form, and without its filters.
-   5. **Submitting a snippet** at `/submit/snippet/`, with "what are you sharing?"
-      added to the experience form, and `snippets` on the games registry. Built
-      2026-10-13, ahead of 1 to 4. Since 2026-10-18 one can be changed and sent
-      again in review, after changes are requested, and when live, as an edit; it
-      still cannot be saved as a draft. The size limit is still a placeholder and
-      the production categories are still to be read.
-   6. **Playtests:** starting one for a draft, the "Playtest" button that copies a
-      live experience, completing one, and discarding a copy. Depends on the
-      playtest screens, which are read-only so far.
-
-   The moderators' half of 3 and 5 is in step 6 below.
-6. **Admin:** the review queue and the two review screens first, then reports, the
-   experience list, and the rest of the side menu.
-   Built so far, 2026-10-13: the review queue at `/admin`, listing new submissions the
-   longest wait first, and the screen for reviewing one at `/admin/review/<id>`. It
-   shows what was submitted beside its checks: what Portal says about the code right
-   now, whether Portal calls it something else, other pages using the same code,
-   unfamiliar hosts its description, cover or gallery load pictures from, a missing
-   cover, a thin description, and how the submitter's earlier submissions went.
-   Approving publishes it; requesting changes needs a note, which its owner then sees
-   on its page, and a few common notes can be started with a press. A submission is
-   decided once, even if two moderators press at the same moment. The queue shows the
-   100 longest waits with a count of everything waiting, and marks a submission whose
-   code another page already has.
-
-   These screens are drawn in the browser (`ssr: 'data-only'`), with the guard and
-   the data on the server. The list of familiar picture hosts is a constant in
-   `src/server/services/moderation.ts` until settings exist. Edits to live
-   experiences and snippets are in the queue, decided at `/admin/edits/<id>`, since
-   2026-10-17 and 2026-10-18. Built 2026-10-18: the side menu, reports, the
-   experience and snippet lists with the featured and trending switches and
-   delisting, users and roles, and categories and tags; see "Admin" under "Feature
-   inventory". Not yet: the overview, the screens for update posts, playtests,
-   events and banners, and settings; the queue's other kinds (update posts,
-   playtests, flag clears); the Discord announcement on approval; a count beside the
-   header's Review link; and a record of decisions.
-
-   Added by the submission states, 2026-10-13, and not built: a note against a
-   particular field when requesting changes, stored in `review_field_notes`, started
-   from the screen's own checks where one applies; "Remove" as a third decision,
-   separate from requesting changes, with a note and a confirmation, since it cannot
-   be undone by its owner; and seeing, on something submitted again, what was asked
-   for last time. The review screen's mockup has none of these yet.
-
-   Reviewing snippets, built 2026-10-13 as the least that lets one be published:
-   waiting snippets are listed in the queue above the experiences, each opening the
-   snippet's own page, which a moderator sees with a "Decision" panel: Approve, or
-   Request changes with a note. The page is what will be published, so there is no
-   second review screen and none of an experience's checks, which are about a code
-   and pictures. Decided once, like an experience. This is not mocked up.
-7. **Edges:** public API, Atom feeds, sitemap, robots, redirects from the old
-   addresses, scheduled jobs. Not started as of 2026-11-09, but for the redirects from
-   `/scripts/` to `/snippets/`.
-8. **Cutover:** rehearsals, then the switch.
+- **Limits.** An account that is not staff may have 5 submissions waiting and send
+  10 in a day, counted in the database. A day's count includes what was sent and
+  then deleted, and leaves out drafts. Lookups from the submit page are held to 20 a
+  minute per account, in memory, and a lookup's answer is reused for a minute.
+- **On submit the code is looked up again,** so the rotation, Portal's tags and the
+  paid-game flag come from Portal, not from the form. If gametools does not answer,
+  the submission still goes in.
+- **A link is enough.** Given a Portal link and no code, the code comes from the
+  lookup. If Portal does not say and it is not a template, the form asks for it.
+- **Addresses** are built from titles with accents removed, so "Über" is "uber". Two
+  sent with the same title at once: the unique constraint decides, and the one that
+  loses takes the next number.
+- **A tag group that takes one tag takes one,** checked in the service and drawn as a
+  list to pick from.
+- **Player counts** are the largest lobby in the rotation, each lobby the sum of its
+  teams' sizes as gametools reports them. That can count bot slots as players, and a
+  team with no stated size counts as none; the export's `humanCapacity` is the better
+  source when there is one.
+- **A kept form** holds up to 100,000 characters, more than any form that passes: a
+  snippet may have 60,000 characters of script (`MAX_SNIPPET_CHARS`, its 400 lines at
+  150 each) and 10,000 of description. Over that, what was refused goes first.
+- **A file posted with the snippet form is the snippet,** over whatever the box
+  holds; one too large to be a snippet is refused, not ignored.
+- **A gallery video must be on YouTube,** the player it embeds. A Twitch or Vimeo
+  link is refused rather than taken for a picture.
+- **A template stays listed when its code goes,** as long as its files can be taken.
+- **"Show ones that no longer load" is off by default** for both games, unlike the
+  Battlefield 6 mockup.
+- **The 2042 form** asks for Style and Topic only, since Rules and Era are Portal's
+  own tags. It has no template offer and no larger files, which belong to a game
+  whose Portal has an export (`hasExport`). A 2042 template is one in its
+  "Templates" category (`marks_template`), and always needs its code or link.
+- **The review screen** shows what was submitted beside its checks: what Portal says
+  about the code now, whether Portal calls it something else, other pages with the
+  same code, unfamiliar picture hosts, a missing cover, a thin description, and how
+  the submitter's earlier submissions went. The queue shows the 100 longest waits
+  with a count of everything waiting.
+- **A snippet is reviewed on its own page,** with a Decision panel. The page is what
+  will be published, so there is no second review screen.
+- **Page heads are plain bands** until the site has artwork it may use.
+- **Where the pages differ from the mockups for lack of data or a feature:** besides
+  what has a card, comments, downloads and a second tag on snippets; pictures and
+  places filled on events; the tabs under an experience's gallery; and trending by
+  week, month or all time.
 
 ## Open decisions
 
